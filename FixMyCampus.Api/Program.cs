@@ -1,11 +1,17 @@
+using System.Text;
 using Microsoft.EntityFrameworkCore;
 using FixMyCampus.Infrastructure.Persistence;
 using FixMyCampus.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using FixMyCampus.Application.Interfaces;
+using FixMyCampus.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -18,7 +24,74 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
+// Configure JWT Authentication
+var jwtKey = builder.Configuration["Jwt:Key"] ?? "VerySecretKeyForDevelopmentOnlyDoNotUseInProd123!";
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "FixMyCampus",
+        ValidAudience = builder.Configuration["Jwt:Audience"] ?? "FixMyCampusUsers",
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+    };
+});
+
+// Register Application Services
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ITicketService, TicketService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<ITechnicianService, TechnicianService>();
+
 var app = builder.Build();
+
+// Seed Roles and Users
+using (var scope = app.Services.CreateScope())
+{
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+    var roles = new[] { "Admin", "Technician", "Reporter" };
+    foreach (var role in roles)
+    {
+        if (!await roleManager.RoleExistsAsync(role))
+        {
+            await roleManager.CreateAsync(new IdentityRole<Guid>(role));
+        }
+    }
+
+    if (await userManager.FindByEmailAsync("admin@fixmycampus.com") == null)
+    {
+        var admin = new ApplicationUser
+        {
+            UserName = "admin@fixmycampus.com",
+            Email = "admin@fixmycampus.com",
+            FullName = "System Administrator"
+        };
+        await userManager.CreateAsync(admin, "Admin123!");
+        await userManager.AddToRoleAsync(admin, "Admin");
+    }
+
+    if (await userManager.FindByEmailAsync("tech@fixmycampus.com") == null)
+    {
+        var tech = new ApplicationUser
+        {
+            UserName = "tech@fixmycampus.com",
+            Email = "tech@fixmycampus.com",
+            FullName = "Campus Technician"
+        };
+        await userManager.CreateAsync(tech, "Tech123!");
+        await userManager.AddToRoleAsync(tech, "Technician");
+    }
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -27,29 +100,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+app.MapControllers();
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
