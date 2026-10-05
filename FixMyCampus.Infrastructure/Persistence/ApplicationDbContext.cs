@@ -10,6 +10,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
     public DbSet<Ticket> Tickets => Set<Ticket>();
     public DbSet<TicketAssignment> TicketAssignments => Set<TicketAssignment>();
     public DbSet<TicketHistory> TicketHistories => Set<TicketHistory>();
+    public DbSet<TicketComment> TicketComments => Set<TicketComment>();
 
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
     {

@@ -31,5 +31,8 @@ public class TicketConfiguration : IEntityTypeConfiguration<Ticket>
             .WithMany(u => u.ReportedTickets)
             .HasForeignKey(t => t.ReporterId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Property(t => t.InternalNotes)
+            .HasDefaultValueSql("'{}'::text[]");
     }
 }

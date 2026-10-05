@@ -34,6 +34,8 @@ public class TicketDto
 public class TicketDetailsDto : TicketDto
 {
     public DateTime UpdatedAt { get; set; }
+    public List<string> InternalNotes { get; set; } = new List<string>();
+    public List<TicketCommentDto> Comments { get; set; } = new List<TicketCommentDto>();
 }
 
 public class TicketHistoryDto
@@ -49,4 +51,25 @@ public class TicketHistoryDto
 public class AssignTechnicianRequest
 {
     public Guid TechnicianId { get; set; }
+}
+
+public class TicketCommentDto
+{
+    public Guid Id { get; set; }
+    public Guid TicketId { get; set; }
+    public Guid AuthorId { get; set; }
+    public string AuthorName { get; set; } = string.Empty;
+    public string AuthorRole { get; set; } = string.Empty;
+    public string Content { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+}
+
+public class AddNoteRequest
+{
+    public string Note { get; set; } = string.Empty;
+}
+
+public class AddCommentRequest
+{
+    public string Content { get; set; } = string.Empty;
 }

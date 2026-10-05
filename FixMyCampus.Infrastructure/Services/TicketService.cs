@@ -114,7 +114,18 @@ public class TicketService : ITicketService
             Reporter = dto.Reporter,
             AssignedTechnician = dto.AssignedTechnician,
             CreatedAt = dto.CreatedAt,
-            UpdatedAt = ticket.UpdatedAt
+            UpdatedAt = ticket.UpdatedAt,
+            InternalNotes = ticket.InternalNotes ?? new List<string>(),
+            Comments = ticket.Comments?.Select(c => new TicketCommentDto
+            {
+                Id = c.Id,
+                TicketId = c.TicketId,
+                AuthorId = c.AuthorId,
+                AuthorName = c.Author?.FullName ?? string.Empty,
+                AuthorRole = "", // Can be filled if role is available, leaving empty for now
+                Content = c.Content,
+                CreatedAt = c.CreatedAt
+            }).OrderBy(c => c.CreatedAt).ToList() ?? new List<TicketCommentDto>()
         };
     }
 
@@ -154,6 +165,62 @@ public class TicketService : ITicketService
                 Email = h.ChangedBy.Email!
             }
         }).ToList();
+    }
+
+    public async Task<TicketDetailsDto> AddInternalNoteAsync(Guid ticketId, Guid currentUserId, bool isAdmin, AddNoteRequest request)
+    {
+        if (!isAdmin) throw new UnauthorizedAccessException("Only admins can add internal notes.");
+
+        var ticket = await _context.Tickets.FindAsync(ticketId);
+        if (ticket == null) throw new KeyNotFoundException("Ticket not found");
+
+        if (ticket.InternalNotes == null) ticket.InternalNotes = new List<string>();
+        ticket.InternalNotes.Add($"{DateTime.UtcNow:g}: {request.Note}");
+        ticket.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+        return await GetTicketByIdAsync(ticketId, currentUserId, isAdmin);
+    }
+
+    public async Task<TicketCommentDto> AddCommentAsync(Guid ticketId, Guid currentUserId, bool isAdmin, AddCommentRequest request)
+    {
+        var ticket = await _context.Tickets
+            .Include(t => t.Assignments)
+            .FirstOrDefaultAsync(t => t.Id == ticketId);
+
+        if (ticket == null) throw new KeyNotFoundException("Ticket not found");
+
+        if (!isAdmin && ticket.ReporterId != currentUserId)
+        {
+            var isTechnician = ticket.Assignments.Any(a => a.TechnicianId == currentUserId && a.UnassignedAt == null);
+            if (!isTechnician) throw new UnauthorizedAccessException("Not authorized to comment on this ticket");
+        }
+
+        var comment = new TicketComment
+        {
+            Id = Guid.NewGuid(),
+            TicketId = ticketId,
+            AuthorId = currentUserId,
+            Content = request.Content,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.TicketComments.Add(comment);
+        ticket.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        var author = await _context.Users.FindAsync(currentUserId);
+        
+        return new TicketCommentDto
+        {
+            Id = comment.Id,
+            TicketId = comment.TicketId,
+            AuthorId = comment.AuthorId,
+            AuthorName = author?.FullName ?? string.Empty,
+            AuthorRole = "",
+            Content = comment.Content,
+            CreatedAt = comment.CreatedAt
+        };
     }
 
     private async Task<TicketDto> MapToDtoAsync(Ticket ticket)

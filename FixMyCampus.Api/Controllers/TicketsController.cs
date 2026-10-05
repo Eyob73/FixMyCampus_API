@@ -94,4 +94,49 @@ public class TicketsController : ControllerBase
             return BadRequest(new { Message = ex.Message });
         }
     }
+
+    [HttpPost("{id}/comments")]
+    public async Task<IActionResult> AddComment(Guid id, [FromBody] AddCommentRequest request)
+    {
+        try
+        {
+            var comment = await _ticketService.AddCommentAsync(id, CurrentUserId, IsAdmin, request);
+            return Ok(comment);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { Message = "Ticket not found" });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
+    }
+
+    [HttpPost("{id}/internal-notes")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> AddInternalNote(Guid id, [FromBody] AddNoteRequest request)
+    {
+        try
+        {
+            var ticket = await _ticketService.AddInternalNoteAsync(id, CurrentUserId, IsAdmin, request);
+            return Ok(ticket);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { Message = "Ticket not found" });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
+    }
 }
