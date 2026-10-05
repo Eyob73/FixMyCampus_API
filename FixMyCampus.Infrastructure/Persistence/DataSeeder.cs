@@ -20,11 +20,11 @@ public static class DataSeeder
         }
 
         // 2. Users
-        var admin = await EnsureUserAsync(userManager, "admin@fixmycampus.com", "System Administrator", "Admin123!", "Admin");
-        var tech1 = await EnsureUserAsync(userManager, "tech@fixmycampus.com", "Campus Technician 1", "Tech123!", "Technician");
-        var tech2 = await EnsureUserAsync(userManager, "tech2@fixmycampus.com", "Campus Technician 2", "Tech123!", "Technician");
-        var reporter1 = await EnsureUserAsync(userManager, "student1@fixmycampus.com", "John Doe", "Student123!", "Reporter");
-        var reporter2 = await EnsureUserAsync(userManager, "student2@fixmycampus.com", "Jane Smith", "Student123!", "Reporter");
+        var admin = await EnsureUserAsync(userManager, "admin@hackathon.local", "Admin", "Admin123!", "Admin");
+        var tech1 = await EnsureUserAsync(userManager, "tech@hackathon.local", "Campus Technician 1", "Tech123!", "Technician");
+        var tech2 = await EnsureUserAsync(userManager, "tech2@hackathon.local", "Campus Technician 2", "Tech123!", "Technician");
+        var reporter1 = await EnsureUserAsync(userManager, "user@hackathon.local", "Standard User", "User123!", "Reporter");
+        var reporter2 = await EnsureUserAsync(userManager, "student2@hackathon.local", "Jane Smith", "User123!", "Reporter");
 
         // 3. Tickets & Assignments
         if (!await context.Tickets.AnyAsync())
@@ -141,3 +141,4 @@ public static class DataSeeder
         return user;
     }
 }
+
