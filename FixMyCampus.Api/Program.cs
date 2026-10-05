@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using FixMyCampus.Application.Interfaces;
 using FixMyCampus.Infrastructure.Services;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -53,50 +54,21 @@ builder.Services.AddScoped<ITechnicianService, TechnicianService>();
 
 var app = builder.Build();
 
-// Seed Roles and Users
+// Seed Roles, Users, and Test Data
 using (var scope = app.Services.CreateScope())
 {
+    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
-    var roles = new[] { "Admin", "Technician", "Reporter" };
-    foreach (var role in roles)
-    {
-        if (!await roleManager.RoleExistsAsync(role))
-        {
-            await roleManager.CreateAsync(new IdentityRole<Guid>(role));
-        }
-    }
-
-    if (await userManager.FindByEmailAsync("admin@fixmycampus.com") == null)
-    {
-        var admin = new ApplicationUser
-        {
-            UserName = "admin@fixmycampus.com",
-            Email = "admin@fixmycampus.com",
-            FullName = "System Administrator"
-        };
-        await userManager.CreateAsync(admin, "Admin123!");
-        await userManager.AddToRoleAsync(admin, "Admin");
-    }
-
-    if (await userManager.FindByEmailAsync("tech@fixmycampus.com") == null)
-    {
-        var tech = new ApplicationUser
-        {
-            UserName = "tech@fixmycampus.com",
-            Email = "tech@fixmycampus.com",
-            FullName = "Campus Technician"
-        };
-        await userManager.CreateAsync(tech, "Tech123!");
-        await userManager.AddToRoleAsync(tech, "Technician");
-    }
+    await DataSeeder.SeedAsync(context, userManager, roleManager);
 }
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.MapScalarApiReference();
 }
 
 app.UseHttpsRedirection();
