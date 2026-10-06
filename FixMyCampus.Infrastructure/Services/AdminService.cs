@@ -30,6 +30,7 @@ public class AdminService : IAdminService
         var assigned = await _context.Tickets.CountAsync(t => t.Status == TicketStatus.Assigned);
         var inProgress = await _context.Tickets.CountAsync(t => t.Status == TicketStatus.InProgress);
         var resolved = await _context.Tickets.CountAsync(t => t.Status == TicketStatus.Resolved);
+        var closed = await _context.Tickets.CountAsync(t => t.Status == TicketStatus.Closed);
 
         var recent = await _ticketService.GetTicketsAsync(null); // Could optimize to take top 10
 
@@ -40,6 +41,8 @@ public class AdminService : IAdminService
             AssignedTickets = assigned,
             InProgressTickets = inProgress,
             ResolvedTickets = resolved,
+            ClosedTickets = closed,
+            UnassignedTickets = @new,
             RecentTickets = recent.Take(10).ToList()
         };
     }
@@ -57,6 +60,34 @@ public class AdminService : IAdminService
             Id = t.Id,
             FullName = t.FullName,
             Email = t.Email!
+        }).ToList();
+    }
+
+    public async Task<IReadOnlyList<ReporterDto>> GetReportersAsync()
+    {
+        var reporters = await _userManager.GetUsersInRoleAsync("Reporter");
+        var reporterIds = reporters.Select(r => r.Id).ToList();
+        
+        var tickets = await _context.Tickets
+            .Where(t => reporterIds.Contains(t.ReporterId))
+            .AsNoTracking()
+            .ToListAsync();
+            
+        var openStatuses = new[] { TicketStatus.New, TicketStatus.Assigned, TicketStatus.InProgress };
+
+        return reporters.Select(r => new ReporterDto
+        {
+            Id = r.Id,
+            Name = r.FullName,
+            Email = r.Email ?? "",
+            Phone = "",
+            Department = "General", // Placeholder
+            Role = "REPORTER",
+            Status = "ACTIVE",
+            SubmittedTicketsCount = tickets.Count(t => t.ReporterId == r.Id),
+            OpenTicketsCount = tickets.Count(t => t.ReporterId == r.Id && openStatuses.Contains(t.Status)),
+            LastActiveAt = DateTime.UtcNow,
+            CreatedAt = r.CreatedAt
         }).ToList();
     }
 

@@ -30,6 +30,8 @@ public class TicketService : ITicketService
             Building = request.Building,
             Room = request.Room,
             Description = request.Description,
+            Title = request.Title,
+            Priority = request.Priority,
             Status = TicketStatus.New,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -158,6 +160,7 @@ public class TicketService : ITicketService
             OldStatus = h.OldStatus?.ToString(),
             NewStatus = h.NewStatus.ToString(),
             ChangedAt = h.ChangedAt,
+            Note = h.Note,
             ChangedBy = new UserDto
             {
                 Id = h.ChangedBy.Id,
@@ -241,12 +244,15 @@ public class TicketService : ITicketService
         return new TicketDto
         {
             Id = ticket.Id,
+            Title = ticket.Title,
             Category = ticket.Category,
             Building = ticket.Building,
             Room = ticket.Room,
             Description = ticket.Description,
+            Priority = ticket.Priority.ToString(),
             Status = ticket.Status.ToString(),
             CreatedAt = ticket.CreatedAt,
+            UpdatedAt = ticket.UpdatedAt,
             Reporter = new UserDto
             {
                 Id = ticket.Reporter.Id,
@@ -259,6 +265,50 @@ public class TicketService : ITicketService
                 FullName = activeAssignment.Technician.FullName,
                 Email = activeAssignment.Technician.Email!
             } : null
+        };
+    }
+
+    public async Task<FixMyCampus.Application.DTOs.Dashboard.ReporterDashboardDto> GetReporterDashboardAsync(Guid reporterId)
+    {
+        var tickets = await _context.Tickets
+            .Where(t => t.ReporterId == reporterId)
+            .AsNoTracking()
+            .ToListAsync();
+
+        return new FixMyCampus.Application.DTOs.Dashboard.ReporterDashboardDto
+        {
+            TotalTickets = tickets.Count,
+            NewTickets = tickets.Count(t => t.Status == TicketStatus.New),
+            AssignedTickets = tickets.Count(t => t.Status == TicketStatus.Assigned),
+            InProgressTickets = tickets.Count(t => t.Status == TicketStatus.InProgress),
+            ResolvedTickets = tickets.Count(t => t.Status == TicketStatus.Resolved)
+        };
+    }
+
+
+    public async Task<FixMyCampus.Application.DTOs.Dashboard.AdminDashboardDto> GetAdminDashboardAsync()
+    {
+        var tickets = await _context.Tickets
+            .Include(t => t.Reporter)
+            .Include(t => t.Assignments)
+                .ThenInclude(a => a.Technician)
+            .AsNoTracking()
+            .ToListAsync();
+
+        var recentTickets = tickets
+            .OrderByDescending(t => t.CreatedAt)
+            .Take(10)
+            .Select(MapToDtoSync)
+            .ToList();
+
+        return new FixMyCampus.Application.DTOs.Dashboard.AdminDashboardDto
+        {
+            TotalTickets = tickets.Count,
+            NewTickets = tickets.Count(t => t.Status == TicketStatus.New),
+            AssignedTickets = tickets.Count(t => t.Status == TicketStatus.Assigned),
+            InProgressTickets = tickets.Count(t => t.Status == TicketStatus.InProgress),
+            ResolvedTickets = tickets.Count(t => t.Status == TicketStatus.Resolved),
+            RecentTickets = recentTickets
         };
     }
 }

@@ -9,5 +9,6 @@ public interface IAdminService
     Task<AdminDashboardDto> GetDashboardAsync();
     Task<IReadOnlyList<TicketDto>> GetTicketsAsync(TicketFilterRequest? filter);
     Task<IReadOnlyList<UserDto>> GetTechniciansAsync();
+    Task<IReadOnlyList<ReporterDto>> GetReportersAsync();
     Task<TicketDto> AssignTechnicianAsync(Guid ticketId, Guid technicianId, Guid adminId);
 }

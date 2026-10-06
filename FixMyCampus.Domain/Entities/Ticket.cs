@@ -5,10 +5,12 @@ namespace FixMyCampus.Domain.Entities;
 public class Ticket
 {
     public Guid Id { get; set; }
+    public string Title { get; set; } = string.Empty;
     public string Category { get; set; } = string.Empty;
     public string Building { get; set; } = string.Empty;
     public string? Room { get; set; }
     public string Description { get; set; } = string.Empty;
+    public TicketPriority Priority { get; set; } = TicketPriority.Medium;
     public TicketStatus Status { get; set; }
     public Guid ReporterId { get; set; }
     public DateTime CreatedAt { get; set; }

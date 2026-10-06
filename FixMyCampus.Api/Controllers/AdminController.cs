@@ -6,8 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FixMyCampus.Api.Controllers;
 
-// [Authorize(Roles = "Admin")]
-[AllowAnonymous]
+[Authorize(Roles = "Admin")]
 [ApiController]
 [Route("api/[controller]")]
 public class AdminController : ControllerBase
@@ -40,6 +39,23 @@ public class AdminController : ControllerBase
     {
         var technicians = await _adminService.GetTechniciansAsync();
         return Ok(technicians);
+    }
+
+    [HttpGet("reporters")]
+    public async Task<IActionResult> GetReporters()
+    {
+        var reporters = await _adminService.GetReportersAsync();
+        return Ok(reporters);
+    }
+
+    [HttpPatch("reporters/{id}/status")]
+    public async Task<IActionResult> ToggleReporterStatus(Guid id, [FromBody] dynamic body)
+    {
+        // Mocked to prevent breaking frontend for now
+        var reporters = await _adminService.GetReportersAsync();
+        var reporter = reporters.FirstOrDefault(r => r.Id == id);
+        if (reporter == null) return NotFound();
+        return Ok(reporter);
     }
 
     [HttpPut("tickets/{id}/assign")]

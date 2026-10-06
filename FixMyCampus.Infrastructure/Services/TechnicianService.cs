@@ -22,27 +22,45 @@ public class TechnicianService : ITechnicianService
 
     public async Task<TechnicianDashboardDto> GetDashboardAsync(Guid technicianId)
     {
-        var assigned = await _context.TicketAssignments
+        var allAssignedTickets = await _context.TicketAssignments
             .Where(a => a.TechnicianId == technicianId && a.UnassignedAt == null)
             .Select(a => a.Ticket)
-            .CountAsync(t => t.Status == TicketStatus.Assigned);
-
-        var inProgress = await _context.TicketAssignments
-            .Where(a => a.TechnicianId == technicianId && a.UnassignedAt == null)
-            .Select(a => a.Ticket)
-            .CountAsync(t => t.Status == TicketStatus.InProgress);
+            .AsNoTracking()
+            .ToListAsync();
 
         var resolved = await _context.TicketHistories
             .Where(h => h.ChangedById == technicianId && h.NewStatus == TicketStatus.Resolved)
-            .CountAsync(); // Tickets resolved by this tech
+            .Select(h => h.TicketId)
+            .Distinct()
+            .CountAsync();
 
         var recent = await GetAssignedTicketsAsync(technicianId, null);
 
+        var totalAssigned = allAssignedTickets.Count;
+        var newAssigned = allAssignedTickets.Count(t => t.Status == TicketStatus.Assigned);
+        var inProgress = allAssignedTickets.Count(t => t.Status == TicketStatus.InProgress);
+        var closed = allAssignedTickets.Count(t => t.Status == TicketStatus.Closed);
+        
+        var critical = allAssignedTickets.Count(t => t.Priority == TicketPriority.Critical);
+        var high = allAssignedTickets.Count(t => t.Priority == TicketPriority.High);
+        var medium = allAssignedTickets.Count(t => t.Priority == TicketPriority.Medium);
+        var low = allAssignedTickets.Count(t => t.Priority == TicketPriority.Low);
+
         return new TechnicianDashboardDto
         {
-            AssignedTickets = assigned,
-            InProgressTickets = inProgress,
-            ResolvedTickets = resolved,
+            TotalAssigned = totalAssigned,
+            NewAssigned = newAssigned,
+            InProgress = inProgress,
+            Resolved = resolved,
+            Closed = closed,
+            HighPriority = critical + high,
+            PriorityCounts = new PriorityCountsDto
+            {
+                Critical = critical,
+                High = high,
+                Medium = medium,
+                Low = low
+            },
             RecentTickets = recent.Take(10).ToList()
         };
     }
@@ -115,7 +133,7 @@ public class TechnicianService : ITechnicianService
         }
     }
 
-    public async Task<TicketDto> ResolveTicketAsync(Guid ticketId, Guid technicianId)
+    public async Task<TicketDto> ResolveTicketAsync(Guid ticketId, Guid technicianId, ResolveTicketRequest request)
     {
         await using var transaction = await _context.Database.BeginTransactionAsync();
         try
@@ -139,7 +157,8 @@ public class TechnicianService : ITechnicianService
                 OldStatus = ticket.Status,
                 NewStatus = TicketStatus.Resolved,
                 ChangedById = technicianId,
-                ChangedAt = DateTime.UtcNow
+                ChangedAt = DateTime.UtcNow,
+                Note = request.ResolutionNote
             };
 
             ticket.Status = TicketStatus.Resolved;
@@ -167,12 +186,15 @@ public class TechnicianService : ITechnicianService
         return new FixMyCampus.Application.DTOs.Tickets.TicketDto
         {
             Id = ticket.Id,
+            Title = ticket.Title,
             Category = ticket.Category,
             Building = ticket.Building,
             Room = ticket.Room,
             Description = ticket.Description,
+            Priority = ticket.Priority.ToString(),
             Status = ticket.Status.ToString(),
             CreatedAt = ticket.CreatedAt,
+            UpdatedAt = ticket.UpdatedAt,
             Reporter = new UserDto
             {
                 Id = ticket.Reporter.Id,

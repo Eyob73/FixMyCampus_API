@@ -61,11 +61,11 @@ public class TechnicianController : ControllerBase
     }
 
     [HttpPut("tickets/{id}/resolve")]
-    public async Task<IActionResult> ResolveTicket(Guid id)
+    public async Task<IActionResult> ResolveTicket(Guid id, [FromBody] ResolveTicketRequest request)
     {
         try
         {
-            var ticket = await _technicianService.ResolveTicketAsync(id, CurrentUserId);
+            var ticket = await _technicianService.ResolveTicketAsync(id, CurrentUserId, request);
             return Ok(ticket);
         }
         catch (KeyNotFoundException ex)

@@ -5,10 +5,12 @@ namespace FixMyCampus.Application.DTOs.Tickets;
 
 public class CreateTicketRequest
 {
+    public string Title { get; set; } = string.Empty;
     public string Category { get; set; } = string.Empty;
     public string Building { get; set; } = string.Empty;
     public string? Room { get; set; }
     public string Description { get; set; } = string.Empty;
+    public TicketPriority Priority { get; set; } = TicketPriority.Medium;
 }
 
 public class TicketFilterRequest
@@ -16,24 +18,27 @@ public class TicketFilterRequest
     public TicketStatus? Status { get; set; }
     public string? Category { get; set; }
     public string? Building { get; set; }
+    public TicketPriority? Priority { get; set; }
 }
 
 public class TicketDto
 {
     public Guid Id { get; set; }
+    public string Title { get; set; } = string.Empty;
     public string Category { get; set; } = string.Empty;
     public string Building { get; set; } = string.Empty;
     public string? Room { get; set; }
     public string Description { get; set; } = string.Empty;
+    public string Priority { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public UserDto Reporter { get; set; } = null!;
     public UserDto? AssignedTechnician { get; set; }
     public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
 }
 
 public class TicketDetailsDto : TicketDto
 {
-    public DateTime UpdatedAt { get; set; }
     public List<string> InternalNotes { get; set; } = new List<string>();
     public List<TicketCommentDto> Comments { get; set; } = new List<TicketCommentDto>();
 }
@@ -46,6 +51,7 @@ public class TicketHistoryDto
     public string NewStatus { get; set; } = string.Empty;
     public UserDto ChangedBy { get; set; } = null!;
     public DateTime ChangedAt { get; set; }
+    public string? Note { get; set; }
 }
 
 public class AssignTechnicianRequest
@@ -72,4 +78,9 @@ public class AddNoteRequest
 public class AddCommentRequest
 {
     public string Content { get; set; } = string.Empty;
+}
+
+public class ResolveTicketRequest
+{
+    public string? ResolutionNote { get; set; }
 }

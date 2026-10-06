@@ -139,4 +139,19 @@ public class TicketsController : ControllerBase
             return BadRequest(new { Message = ex.Message });
         }
     }
+
+    [HttpGet("dashboard")]
+    [Authorize(Roles = "Reporter")]
+    public async Task<IActionResult> GetReporterDashboard()
+    {
+        try
+        {
+            var stats = await _ticketService.GetReporterDashboardAsync(CurrentUserId);
+            return Ok(stats);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
+    }
 }
