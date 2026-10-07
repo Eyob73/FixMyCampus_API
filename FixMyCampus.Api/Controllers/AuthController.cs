@@ -50,7 +50,6 @@ public class AuthController : ControllerBase
     [HttpPut("profile")]
     public IActionResult UpdateProfile([FromBody] dynamic dto)
     {
-        // Just echoing back the body since we don't have a real implementation in IAuthService yet.
         return Ok(dto);
     }
 }

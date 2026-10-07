@@ -108,10 +108,12 @@ public class TicketService : ITicketService
         return new TicketDetailsDto
         {
             Id = dto.Id,
+            Title = dto.Title,
             Category = dto.Category,
             Building = dto.Building,
             Room = dto.Room,
             Description = dto.Description,
+            Priority = dto.Priority,
             Status = dto.Status,
             Reporter = dto.Reporter,
             AssignedTechnician = dto.AssignedTechnician,
@@ -310,5 +312,43 @@ public class TicketService : ITicketService
             ResolvedTickets = tickets.Count(t => t.Status == TicketStatus.Resolved),
             RecentTickets = recentTickets
         };
+    }
+
+    public async Task<TicketDetailsDto> UpdatePriorityAsync(Guid ticketId, Guid currentUserId, bool isAdmin, TicketPriority newPriority)
+    {
+        var ticket = await _context.Tickets
+            .Include(t => t.Assignments)
+            .FirstOrDefaultAsync(t => t.Id == ticketId);
+
+        if (ticket == null) throw new KeyNotFoundException("Ticket not found");
+
+        if (!isAdmin)
+        {
+            var isTechnician = ticket.Assignments.Any(a => a.TechnicianId == currentUserId && a.UnassignedAt == null);
+            var isReporter = ticket.ReporterId == currentUserId;
+            if (!isTechnician && !isReporter) throw new UnauthorizedAccessException("Not authorized to update priority on this ticket");
+        }
+
+        if (ticket.Priority != newPriority)
+        {
+            ticket.Priority = newPriority;
+            ticket.UpdatedAt = DateTime.UtcNow;
+
+            var history = new TicketHistory
+            {
+                Id = Guid.NewGuid(),
+                TicketId = ticket.Id,
+                OldStatus = ticket.Status,
+                NewStatus = ticket.Status, // Status unchanged, priority changed
+                Note = $"Priority updated to {newPriority}",
+                ChangedById = currentUserId,
+                ChangedAt = DateTime.UtcNow
+            };
+            
+            _context.TicketHistories.Add(history);
+            await _context.SaveChangesAsync();
+        }
+
+        return await GetTicketByIdAsync(ticketId, currentUserId, isAdmin);
     }
 }

@@ -140,6 +140,28 @@ public class TicketsController : ControllerBase
         }
     }
 
+    [HttpPatch("{id}/priority")]
+    public async Task<IActionResult> UpdatePriority(Guid id, [FromBody] UpdatePriorityRequest request)
+    {
+        try
+        {
+            var ticket = await _ticketService.UpdatePriorityAsync(id, CurrentUserId, IsAdmin, request.Priority);
+            return Ok(ticket);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { Message = "Ticket not found" });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
+    }
+
     [HttpGet("dashboard")]
     [Authorize(Roles = "Reporter")]
     public async Task<IActionResult> GetReporterDashboard()

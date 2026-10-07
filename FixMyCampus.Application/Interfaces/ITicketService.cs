@@ -13,4 +13,5 @@ public interface ITicketService
     Task<TicketCommentDto> AddCommentAsync(Guid ticketId, Guid currentUserId, bool isAdmin, AddCommentRequest request);
     Task<FixMyCampus.Application.DTOs.Dashboard.ReporterDashboardDto> GetReporterDashboardAsync(Guid reporterId);
     Task<FixMyCampus.Application.DTOs.Dashboard.AdminDashboardDto> GetAdminDashboardAsync();
+    Task<TicketDetailsDto> UpdatePriorityAsync(Guid ticketId, Guid currentUserId, bool isAdmin, FixMyCampus.Domain.Enums.TicketPriority newPriority);
 }

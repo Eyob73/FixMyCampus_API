@@ -17,4 +17,9 @@ public class ApplicationUser : IdentityUser<Guid>
     public ICollection<TicketAssignment> CreatedAssignments { get; set; } = new List<TicketAssignment>();
 
     public ICollection<TicketHistory> TicketHistories { get; set; } = new List<TicketHistory>();
+
+    // Technician fields
+    public string? Department { get; set; }
+    public string? Specialty { get; set; }
+    public string? TechnicianStatus { get; set; }
 }

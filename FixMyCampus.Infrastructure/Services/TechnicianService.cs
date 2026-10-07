@@ -40,7 +40,7 @@ public class TechnicianService : ITechnicianService
         var newAssigned = allAssignedTickets.Count(t => t.Status == TicketStatus.Assigned);
         var inProgress = allAssignedTickets.Count(t => t.Status == TicketStatus.InProgress);
         var closed = allAssignedTickets.Count(t => t.Status == TicketStatus.Closed);
-        
+
         var critical = allAssignedTickets.Count(t => t.Priority == TicketPriority.Critical);
         var high = allAssignedTickets.Count(t => t.Priority == TicketPriority.High);
         var medium = allAssignedTickets.Count(t => t.Priority == TicketPriority.Medium);
@@ -83,7 +83,7 @@ public class TechnicianService : ITechnicianService
         }
 
         var tickets = await query.OrderByDescending(t => t.UpdatedAt).ToListAsync();
-        
+
         return tickets.Select(MapToDtoSync).ToList();
     }
 

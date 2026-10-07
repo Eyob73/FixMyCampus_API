@@ -52,27 +52,97 @@ public class AdminService : IAdminService
         return await _ticketService.GetTicketsAsync(filter);
     }
 
-    public async Task<IReadOnlyList<UserDto>> GetTechniciansAsync()
+    public async Task<IReadOnlyList<TechnicianDto>> GetTechniciansAsync()
     {
         var technicians = await _userManager.GetUsersInRoleAsync("Technician");
-        return technicians.Select(t => new UserDto
+        var techIds = technicians.Select(t => t.Id).ToList();
+
+        var tickets = await _context.Tickets
+            .Include(t => t.Assignments)
+            .Where(t => t.Assignments.Any(a => techIds.Contains(a.TechnicianId) && a.UnassignedAt == null))
+            .AsNoTracking()
+            .ToListAsync();
+
+        var openStatuses = new[] { TicketStatus.New, TicketStatus.Assigned, TicketStatus.InProgress };
+
+        return technicians.Select(t =>
         {
-            Id = t.Id,
-            FullName = t.FullName,
-            Email = t.Email!
+            var techTickets = tickets.Where(tk => tk.Assignments.Any(a => a.TechnicianId == t.Id && a.UnassignedAt == null)).ToList();
+
+            return new TechnicianDto
+            {
+                Id = t.Id,
+                Name = t.FullName,
+                Email = t.Email!,
+                Phone = t.PhoneNumber ?? "",
+                Department = t.Department ?? "General",
+                Specialty = t.Specialty ?? "General",
+                Status = t.TechnicianStatus ?? "AVAILABLE",
+                AssignedTicketCount = techTickets.Count,
+                ActiveTicketsCount = techTickets.Count(tk => openStatuses.Contains(tk.Status)),
+                ResolvedTicketsCount = techTickets.Count(tk => tk.Status == TicketStatus.Resolved || tk.Status == TicketStatus.Closed),
+                Rating = 5.0,
+                CreatedAt = t.CreatedAt
+            };
         }).ToList();
+    }
+
+    public async Task<TechnicianDto> CreateTechnicianAsync(CreateTechnicianDto request)
+    {
+        var existingUser = await _userManager.FindByEmailAsync(request.Email);
+        if (existingUser != null)
+        {
+            throw new InvalidOperationException("A user with this email already exists.");
+        }
+
+        var user = new ApplicationUser
+        {
+            UserName = request.Email,
+            Email = request.Email,
+            FullName = request.Name,
+            PhoneNumber = request.Phone,
+            Department = request.Department,
+            Specialty = request.Specialty,
+            TechnicianStatus = request.Status,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        var result = await _userManager.CreateAsync(user, "Password123!");
+        if (!result.Succeeded)
+        {
+            throw new Exception(string.Join(", ", result.Errors.Select(e => e.Description)));
+        }
+
+        await _userManager.AddToRoleAsync(user, "Technician");
+
+        return new TechnicianDto
+        {
+            Id = user.Id,
+            Name = user.FullName,
+            Email = user.Email,
+            Phone = user.PhoneNumber,
+            Department = user.Department,
+            Specialty = user.Specialty,
+            Status = user.TechnicianStatus,
+            AssignedTicketCount = 0,
+            ActiveTicketsCount = 0,
+            ResolvedTicketsCount = 0,
+            Rating = 5.0,
+            CreatedAt = user.CreatedAt
+        };
     }
 
     public async Task<IReadOnlyList<ReporterDto>> GetReportersAsync()
     {
         var reporters = await _userManager.GetUsersInRoleAsync("Reporter");
         var reporterIds = reporters.Select(r => r.Id).ToList();
-        
+
         var tickets = await _context.Tickets
             .Where(t => reporterIds.Contains(t.ReporterId))
             .AsNoTracking()
             .ToListAsync();
-            
+
         var openStatuses = new[] { TicketStatus.New, TicketStatus.Assigned, TicketStatus.InProgress };
 
         return reporters.Select(r => new ReporterDto
@@ -103,14 +173,23 @@ public class AdminService : IAdminService
 
             if (ticket == null) throw new KeyNotFoundException("Ticket not found");
 
-            if (ticket.Status != TicketStatus.New)
-                throw new InvalidOperationException("Can only assign technicians to New tickets");
+            if (ticket.Status != TicketStatus.New && ticket.Status != TicketStatus.Assigned)
+                throw new InvalidOperationException("Can only assign technicians to New or Assigned tickets");
 
             var technician = await _userManager.FindByIdAsync(technicianId.ToString());
             if (technician == null) throw new KeyNotFoundException("Technician not found");
 
             if (!await _userManager.IsInRoleAsync(technician, "Technician"))
                 throw new InvalidOperationException("User is not a technician");
+
+            var existingAssignment = await _context.TicketAssignments
+                .FirstOrDefaultAsync(a => a.TicketId == ticketId && a.UnassignedAt == null);
+
+            if (existingAssignment != null)
+            {
+                existingAssignment.UnassignedAt = DateTime.UtcNow;
+                _context.TicketAssignments.Update(existingAssignment);
+            }
 
             var assignment = new TicketAssignment
             {

@@ -41,6 +41,24 @@ public class AdminController : ControllerBase
         return Ok(technicians);
     }
 
+    [HttpPost("technicians")]
+    public async Task<IActionResult> CreateTechnician([FromBody] FixMyCampus.Application.DTOs.Users.CreateTechnicianDto request)
+    {
+        try
+        {
+            var technician = await _adminService.CreateTechnicianAsync(request);
+            return Ok(technician);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
+    }
+
     [HttpGet("reporters")]
     public async Task<IActionResult> GetReporters()
     {
@@ -51,7 +69,6 @@ public class AdminController : ControllerBase
     [HttpPatch("reporters/{id}/status")]
     public async Task<IActionResult> ToggleReporterStatus(Guid id, [FromBody] dynamic body)
     {
-        // Mocked to prevent breaking frontend for now
         var reporters = await _adminService.GetReportersAsync();
         var reporter = reporters.FirstOrDefault(r => r.Id == id);
         if (reporter == null) return NotFound();

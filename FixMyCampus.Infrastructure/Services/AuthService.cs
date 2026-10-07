@@ -70,7 +70,7 @@ public class AuthService : IAuthService
             claims.Add(new Claim(ClaimTypes.Role, role));
         }
 
-        var jwtKey = _configuration["Jwt:Key"] ?? "VerySecretKeyForDevelopmentOnlyDoNotUseInProd123!";
+        var jwtKey = _configuration["Jwt:Key"] ?? "";
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
@@ -78,7 +78,7 @@ public class AuthService : IAuthService
             issuer: _configuration["Jwt:Issuer"] ?? "FixMyCampus",
             audience: _configuration["Jwt:Audience"] ?? "FixMyCampusUsers",
             claims: claims,
-            expires: DateTime.UtcNow.AddHours(2),
+            expires: DateTime.UtcNow.AddMinutes(15),
             signingCredentials: creds
         );
 
