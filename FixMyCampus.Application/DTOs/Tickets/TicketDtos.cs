@@ -1,15 +1,29 @@
 using FixMyCampus.Domain.Enums;
 using FixMyCampus.Application.DTOs.Users;
+using System.ComponentModel.DataAnnotations;
 
 namespace FixMyCampus.Application.DTOs.Tickets;
 
 public class CreateTicketRequest
 {
+    [Required(ErrorMessage = "Title is required")]
+    [StringLength(100, ErrorMessage = "Title cannot exceed 100 characters")]
     public string Title { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Category is required")]
+    [StringLength(50, ErrorMessage = "Category cannot exceed 50 characters")]
     public string Category { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Building is required")]
+    [StringLength(50, ErrorMessage = "Building cannot exceed 50 characters")]
     public string Building { get; set; } = string.Empty;
+
     public string? Room { get; set; }
+
+    [Required(ErrorMessage = "Description is required")]
+    [StringLength(1000, ErrorMessage = "Description cannot exceed 1000 characters")]
     public string Description { get; set; } = string.Empty;
+
     public TicketPriority Priority { get; set; } = TicketPriority.Medium;
 }
 
@@ -56,6 +70,7 @@ public class TicketHistoryDto
 
 public class AssignTechnicianRequest
 {
+    [Required(ErrorMessage = "TechnicianId is required")]
     public Guid TechnicianId { get; set; }
 }
 
@@ -72,11 +87,13 @@ public class TicketCommentDto
 
 public class AddNoteRequest
 {
+    [Required(ErrorMessage = "Note content is required")]
     public string Note { get; set; } = string.Empty;
 }
 
 public class AddCommentRequest
 {
+    [Required(ErrorMessage = "Comment content is required")]
     public string Content { get; set; } = string.Empty;
 }
 
