@@ -132,11 +132,17 @@ public static class DataSeeder
                 UserName = email,
                 Email = email,
                 FullName = fullName,
+                EmailConfirmed = true,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
             await userManager.CreateAsync(user, password);
             await userManager.AddToRoleAsync(user, role);
+        }
+        else if (!user.EmailConfirmed)
+        {
+            user.EmailConfirmed = true;
+            await userManager.UpdateAsync(user);
         }
         return user;
     }

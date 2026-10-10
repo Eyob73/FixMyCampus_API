@@ -46,10 +46,37 @@ public class AuthService : IAuthService
     public async Task<AuthResponseDto> LoginAsync(LoginRequest request)
     {
         var user = await _userManager.FindByEmailAsync(request.Email);
-        if (user == null || !await _userManager.CheckPasswordAsync(user, request.Password))
+        if (user == null)
         {
             throw new UnauthorizedAccessException("Invalid credentials.");
         }
+
+        if (await _userManager.IsLockedOutAsync(user))
+        {
+            throw new UnauthorizedAccessException("Account is locked out. Please try again later.");
+        }
+
+        if (_userManager.Options.SignIn.RequireConfirmedEmail && !await _userManager.IsEmailConfirmedAsync(user))
+        {
+            throw new UnauthorizedAccessException("Please confirm your email address before logging in.");
+        }
+        
+        if (_userManager.Options.SignIn.RequireConfirmedAccount && !await _userManager.IsEmailConfirmedAsync(user))
+        {
+            throw new UnauthorizedAccessException("Please confirm your account before logging in.");
+        }
+
+        if (!await _userManager.CheckPasswordAsync(user, request.Password))
+        {
+            await _userManager.AccessFailedAsync(user);
+            if (await _userManager.IsLockedOutAsync(user))
+            {
+                throw new UnauthorizedAccessException("Account is locked out. Please try again later.");
+            }
+            throw new UnauthorizedAccessException("Invalid credentials.");
+        }
+
+        await _userManager.ResetAccessFailedCountAsync(user);
 
         return await GenerateAuthResponse(user);
     }

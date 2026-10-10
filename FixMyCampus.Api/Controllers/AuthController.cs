@@ -1,6 +1,7 @@
 using FixMyCampus.Application.DTOs.Auth;
 using FixMyCampus.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace FixMyCampus.Api.Controllers;
 
@@ -29,6 +30,7 @@ public class AuthController : ControllerBase
         }
     }
 
+    [EnableRateLimiting("AuthLimiter")]
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
