@@ -30,6 +30,21 @@ public class LoginRequest
 public class AuthResponseDto
 {
     public string AccessToken { get; set; } = string.Empty;
+    public string Token => AccessToken;
+    public string? RefreshToken { get; set; }
+    public DateTime? RefreshTokenExpiresAt { get; set; }
+    public int ExpiresIn { get; set; } = 900; // 15 minutes in seconds
     public Users.UserDto User { get; set; } = null!;
     public IList<string> Roles { get; set; } = new List<string>();
 }
+
+public class RefreshTokenRequest
+{
+    public string? RefreshToken { get; set; }
+}
+
+public class RevokeTokenRequest
+{
+    public string? RefreshToken { get; set; }
+}
+

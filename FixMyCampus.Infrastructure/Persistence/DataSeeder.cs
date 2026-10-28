@@ -26,13 +26,246 @@ public static class DataSeeder
         var reporter1 = await EnsureUserAsync(userManager, "user@hackathon.local", "Standard User", "User123!", "Reporter");
         var reporter2 = await EnsureUserAsync(userManager, "student2@hackathon.local", "Jane Smith", "User123!", "Reporter");
 
-        // 3. Tickets & Assignments
+        // 3. Categories
+        if (!await context.Categories.AnyAsync())
+        {
+            var categories = new List<Category>
+            {
+                new()
+                {
+                    Name = "Plumbing",
+                    Description = "Pipes, drains, leaks, restrooms, sinks, and water fixtures",
+                    Icon = "plumbing",
+                    DisplayOrder = 1,
+                    IsActive = true
+                },
+                new()
+                {
+                    Name = "Electrical",
+                    Description = "Power outlets, breakers, lighting, switches, and wiring",
+                    Icon = "bolt",
+                    DisplayOrder = 2,
+                    IsActive = true
+                },
+                new()
+                {
+                    Name = "HVAC / Climate",
+                    Description = "Heating, air conditioning, ventilation, and thermostat issues",
+                    Icon = "mode_fan",
+                    DisplayOrder = 3,
+                    IsActive = true
+                },
+                new()
+                {
+                    Name = "Equipment",
+                    Description = "Lab equipment, AV projectors, machinery, and appliances",
+                    Icon = "devices",
+                    DisplayOrder = 4,
+                    IsActive = true
+                },
+                new()
+                {
+                    Name = "Furniture",
+                    Description = "Desks, chairs, whiteboards, podiums, and shelving",
+                    Icon = "chair",
+                    DisplayOrder = 5,
+                    IsActive = true
+                },
+                new()
+                {
+                    Name = "Structural & Doors",
+                    Description = "Doors, locks, windows, walls, ceiling tiles, and stairs",
+                    Icon = "door_front",
+                    DisplayOrder = 6,
+                    IsActive = true
+                },
+                new()
+                {
+                    Name = "Network & Wi-Fi",
+                    Description = "Campus Wi-Fi connectivity, Ethernet ports, and network hardware",
+                    Icon = "wifi",
+                    DisplayOrder = 7,
+                    IsActive = true
+                },
+                new()
+                {
+                    Name = "Cleaning & Grounds",
+                    Description = "Spills, sanitation, trash disposal, landscaping, and grounds",
+                    Icon = "cleaning_services",
+                    DisplayOrder = 8,
+                    IsActive = true
+                },
+                new()
+                {
+                    Name = "Safety & Locks",
+                    Description = "Fire alarms, emergency lighting, access cards, and security hardware",
+                    Icon = "security",
+                    DisplayOrder = 9,
+                    IsActive = true
+                },
+                new()
+                {
+                    Name = "Other",
+                    Description = "General campus issues not covered by other categories",
+                    Icon = "more_horiz",
+                    DisplayOrder = 10,
+                    IsActive = true
+                }
+            };
+
+            await context.Categories.AddRangeAsync(categories);
+            await context.SaveChangesAsync();
+        }
+
+        // 4. Buildings
+        if (!await context.Buildings.AnyAsync())
+        {
+            var buildings = new List<Building>
+            {
+                new()
+                {
+                    Code = "SCI-A",
+                    Name = "Physical Sciences Hall & Labs",
+                    Zone = "STEM_COMPLEX",
+                    Floors = 5,
+                    TotalRooms = 120,
+                    ManagerName = "Robert Vance",
+                    ManagerContact = "r.vance@facilities.campus.edu",
+                    Status = "OPERATIONAL",
+                    CreatedAt = DateTime.UtcNow.AddMonths(-6),
+                    UpdatedAt = DateTime.UtcNow.AddMonths(-1)
+                },
+                new()
+                {
+                    Code = "ENG-MAIN",
+                    Name = "Engineering Research Center",
+                    Zone = "STEM_COMPLEX",
+                    Floors = 6,
+                    TotalRooms = 145,
+                    ManagerName = "Kirsten Dale",
+                    ManagerContact = "k.dale@facilities.campus.edu",
+                    Status = "OPERATIONAL",
+                    CreatedAt = DateTime.UtcNow.AddMonths(-6),
+                    UpdatedAt = DateTime.UtcNow.AddMonths(-1)
+                },
+                new()
+                {
+                    Code = "LIB-CENTRAL",
+                    Name = "W.E.B. Du Bois Memorial Library",
+                    Zone = "CENTRAL_QUAD",
+                    Floors = 8,
+                    TotalRooms = 90,
+                    ManagerName = "Arthur Dent",
+                    ManagerContact = "a.dent@facilities.campus.edu",
+                    Status = "OPERATIONAL",
+                    CreatedAt = DateTime.UtcNow.AddMonths(-5),
+                    UpdatedAt = DateTime.UtcNow.AddMonths(-1)
+                },
+                new()
+                {
+                    Code = "RES-NORTH",
+                    Name = "North Quad Residential Commons",
+                    Zone = "NORTH_CAMPUS",
+                    Floors = 4,
+                    TotalRooms = 210,
+                    ManagerName = "Maria Gallagher",
+                    ManagerContact = "m.gallagher@facilities.campus.edu",
+                    Status = "MAINTENANCE_SURGE",
+                    CreatedAt = DateTime.UtcNow.AddMonths(-5),
+                    UpdatedAt = DateTime.UtcNow.AddMonths(-1)
+                },
+                new()
+                {
+                    Code = "ATH-PAV",
+                    Name = "Campus Pavilion & Aquatic Center",
+                    Zone = "WEST_ATHLETICS",
+                    Floors = 3,
+                    TotalRooms = 45,
+                    ManagerName = "Coach Thomas Harris",
+                    ManagerContact = "t.harris@athletics.campus.edu",
+                    Status = "OPERATIONAL",
+                    CreatedAt = DateTime.UtcNow.AddMonths(-4),
+                    UpdatedAt = DateTime.UtcNow.AddMonths(-1)
+                },
+                new()
+                {
+                    Code = "ADM-TOWER",
+                    Name = "Founders Administrative Tower",
+                    Zone = "CENTRAL_QUAD",
+                    Floors = 10,
+                    TotalRooms = 160,
+                    ManagerName = "Helen Morales",
+                    ManagerContact = "h.morales@facilities.campus.edu",
+                    Status = "OPERATIONAL",
+                    CreatedAt = DateTime.UtcNow.AddMonths(-6),
+                    UpdatedAt = DateTime.UtcNow.AddMonths(-1)
+                },
+                new()
+                {
+                    Code = "STU-UNION",
+                    Name = "Student Union",
+                    Zone = "CENTRAL_QUAD",
+                    Floors = 3,
+                    TotalRooms = 55,
+                    ManagerName = "David Kim",
+                    ManagerContact = "d.kim@facilities.campus.edu",
+                    Status = "OPERATIONAL",
+                    CreatedAt = DateTime.UtcNow.AddMonths(-4),
+                    UpdatedAt = DateTime.UtcNow.AddMonths(-1)
+                },
+                new()
+                {
+                    Code = "RES-SOUTH",
+                    Name = "South Residential Hall",
+                    Zone = "SOUTH_CAMPUS",
+                    Floors = 5,
+                    TotalRooms = 180,
+                    ManagerName = "Sarah Jenkins",
+                    ManagerContact = "s.jenkins@facilities.campus.edu",
+                    Status = "OPERATIONAL",
+                    CreatedAt = DateTime.UtcNow.AddMonths(-4),
+                    UpdatedAt = DateTime.UtcNow.AddMonths(-1)
+                },
+                new()
+                {
+                    Code = "HLT-SCI",
+                    Name = "Health Sciences Center",
+                    Zone = "STEM_COMPLEX",
+                    Floors = 4,
+                    TotalRooms = 95,
+                    ManagerName = "Dr. Angela Martin",
+                    ManagerContact = "a.martin@health.campus.edu",
+                    Status = "OPERATIONAL",
+                    CreatedAt = DateTime.UtcNow.AddMonths(-3),
+                    UpdatedAt = DateTime.UtcNow.AddMonths(-1)
+                },
+                new()
+                {
+                    Code = "HUM-HALL",
+                    Name = "Humanities Hall",
+                    Zone = "CENTRAL_QUAD",
+                    Floors = 4,
+                    TotalRooms = 75,
+                    ManagerName = "Edward Norton",
+                    ManagerContact = "e.norton@facilities.campus.edu",
+                    Status = "OPERATIONAL",
+                    CreatedAt = DateTime.UtcNow.AddMonths(-3),
+                    UpdatedAt = DateTime.UtcNow.AddMonths(-1)
+                }
+            };
+
+            await context.Buildings.AddRangeAsync(buildings);
+            await context.SaveChangesAsync();
+        }
+
+        // 5. Tickets & Assignments
         if (!await context.Tickets.AnyAsync())
         {
             var ticket1 = new Ticket
             {
                 Category = "Plumbing",
-                Building = "Engineering Building",
+                Building = "Engineering Research Center",
+                Floor = "1st Floor",
                 Room = "101",
                 Description = "Leaking pipe under the sink.",
                 Status = TicketStatus.Assigned,
@@ -44,8 +277,9 @@ public static class DataSeeder
             var ticket2 = new Ticket
             {
                 Category = "Electrical",
-                Building = "Library",
-                Room = "2nd Floor West",
+                Building = "W.E.B. Du Bois Memorial Library",
+                Floor = "2nd Floor",
+                Room = "West Wing",
                 Description = "Lights flickering.",
                 Status = TicketStatus.New,
                 ReporterId = reporter2.Id,
@@ -55,8 +289,9 @@ public static class DataSeeder
             
             var ticket3 = new Ticket
             {
-                Category = "IT",
-                Building = "Science Hall",
+                Category = "Equipment",
+                Building = "Physical Sciences Hall & Labs",
+                Floor = "Ground Floor",
                 Room = "Lab 3",
                 Description = "Projector not working.",
                 Status = TicketStatus.Resolved,

@@ -23,12 +23,42 @@ public class TicketsController : ControllerBase
 
     [HttpPost]
     [Authorize(Roles = "Reporter")]
-    public async Task<IActionResult> CreateTicket([FromBody] CreateTicketRequest request)
+    public async Task<IActionResult> CreateTicket()
     {
         try
         {
-            var ticket = await _ticketService.CreateTicketAsync(CurrentUserId, request);
+            CreateTicketRequest request;
+            List<IFormFile> files = new();
+
+            if (Request.HasFormContentType)
+            {
+                var form = await Request.ReadFormAsync();
+                request = new CreateTicketRequest
+                {
+                    Title = form["title"].ToString(),
+                    Category = form["category"].ToString(),
+                    Building = form["building"].ToString(),
+                    Floor = form.ContainsKey("floor") ? form["floor"].ToString() : null,
+                    Room = form.ContainsKey("room") ? form["room"].ToString() : null,
+                    Description = form["description"].ToString(),
+                    Priority = Enum.TryParse<FixMyCampus.Domain.Enums.TicketPriority>(form["priority"].ToString(), true, out var p) ? p : FixMyCampus.Domain.Enums.TicketPriority.Medium
+                };
+                files = form.Files.ToList();
+            }
+            else
+            {
+                using var reader = new StreamReader(Request.Body);
+                var body = await reader.ReadToEndAsync();
+                request = System.Text.Json.JsonSerializer.Deserialize<CreateTicketRequest>(body, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                    ?? throw new ArgumentException("Invalid ticket request payload.");
+            }
+
+            var ticket = await _ticketService.CreateTicketAsync(CurrentUserId, request, files);
             return CreatedAtAction(nameof(GetTicketById), new { id = ticket.Id }, ticket);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { Message = ex.Message });
         }
         catch (Exception ex)
         {
@@ -162,6 +192,30 @@ public class TicketsController : ControllerBase
         }
     }
 
+    [HttpPut("{id}/status")]
+    [HttpPatch("{id}/status")]
+    public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateStatusRequest request)
+    {
+        try
+        {
+            var status = request.ParsedStatus;
+            var ticket = await _ticketService.UpdateStatusAsync(id, CurrentUserId, IsAdmin, status, request.Note);
+            return Ok(ticket);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { Message = "Ticket not found" });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
+    }
+
     [HttpGet("dashboard")]
     [Authorize(Roles = "Reporter")]
     public async Task<IActionResult> GetReporterDashboard()
@@ -170,6 +224,69 @@ public class TicketsController : ControllerBase
         {
             var stats = await _ticketService.GetReporterDashboardAsync(CurrentUserId);
             return Ok(stats);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
+    }
+
+    [HttpGet("{ticketId}/images/{imageId}/file")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetTicketImageFile(Guid ticketId, Guid imageId)
+    {
+        try
+        {
+            var (stream, contentType, fileName) = await _ticketService.GetTicketImageStreamAsync(ticketId, imageId);
+            Response.Headers.Append("Content-Disposition", $"inline; filename=\"{fileName}\"");
+            return File(stream, contentType, enableRangeProcessing: true);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { Message = "Image or ticket not found" });
+        }
+        catch (FileNotFoundException)
+        {
+            return NotFound(new { Message = "Image file not found on storage" });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
+    }
+
+    [HttpPost("{id}/images")]
+    public async Task<IActionResult> UploadImages(Guid id, [FromForm] List<IFormFile> files)
+    {
+        try
+        {
+            if (files == null || files.Count == 0)
+            {
+                if (Request.HasFormContentType && Request.Form.Files.Count > 0)
+                {
+                    files = Request.Form.Files.ToList();
+                }
+                else
+                {
+                    return BadRequest(new { Message = "No image files provided." });
+                }
+            }
+
+            var category = FixMyCampus.Domain.Enums.ImageCategory.ReportedIssue;
+            var images = await _ticketService.AddTicketImagesAsync(id, CurrentUserId, IsAdmin, category, files);
+            return Ok(images);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { Message = "Ticket not found" });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { Message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { Message = ex.Message });
         }
         catch (Exception ex)
         {

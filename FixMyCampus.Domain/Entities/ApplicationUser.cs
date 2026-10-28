@@ -22,4 +22,9 @@ public class ApplicationUser : IdentityUser<Guid>
     public string? Department { get; set; }
     public string? Specialty { get; set; }
     public string? TechnicianStatus { get; set; }
+
+    public bool IsActive { get; set; } = true;
+
+    public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
+    public ICollection<TicketImage> UploadedImages { get; set; } = new List<TicketImage>();
 }

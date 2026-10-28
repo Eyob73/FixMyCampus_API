@@ -69,6 +69,7 @@ public class TechnicianService : ITechnicianService
     {
         var query = _context.Tickets
             .Include(t => t.Reporter)
+            .Include(t => t.Images)
             .Include(t => t.Assignments)
                 .ThenInclude(a => a.Technician)
             .Where(t => t.Assignments.Any(a => a.TechnicianId == technicianId && a.UnassignedAt == null))
@@ -150,6 +151,20 @@ public class TechnicianService : ITechnicianService
             if (ticket.Status != TicketStatus.InProgress)
                 throw new InvalidOperationException("Ticket is not in InProgress status");
 
+            var resolutionNote = request.ResolutionDescription ?? request.ResolutionNote ?? "Work completed.";
+            if (!string.IsNullOrWhiteSpace(request.WorkPerformed))
+            {
+                resolutionNote += $"\nWork Performed: {request.WorkPerformed}";
+            }
+            if (!string.IsNullOrWhiteSpace(request.MaterialsUsed))
+            {
+                resolutionNote += $"\nMaterials: {request.MaterialsUsed}";
+            }
+            if (!string.IsNullOrWhiteSpace(request.AdditionalNotes))
+            {
+                resolutionNote += $"\nAdditional Notes: {request.AdditionalNotes}";
+            }
+
             var history = new TicketHistory
             {
                 Id = Guid.NewGuid(),
@@ -158,7 +173,7 @@ public class TechnicianService : ITechnicianService
                 NewStatus = TicketStatus.Resolved,
                 ChangedById = technicianId,
                 ChangedAt = DateTime.UtcNow,
-                Note = request.ResolutionNote
+                Note = resolutionNote
             };
 
             ticket.Status = TicketStatus.Resolved;
@@ -180,6 +195,11 @@ public class TechnicianService : ITechnicianService
         }
     }
 
+    public async Task<List<TicketImageDto>> UploadResolutionImagesAsync(Guid ticketId, Guid technicianId, IEnumerable<Microsoft.AspNetCore.Http.IFormFile> files)
+    {
+        return await _ticketService.AddTicketImagesAsync(ticketId, technicianId, false, ImageCategory.ResolutionEvidence, files);
+    }
+
     private FixMyCampus.Application.DTOs.Tickets.TicketDto MapToDtoSync(Ticket ticket)
     {
         var activeAssignment = ticket.Assignments?.FirstOrDefault(a => a.UnassignedAt == null);
@@ -189,6 +209,7 @@ public class TechnicianService : ITechnicianService
             Title = ticket.Title,
             Category = ticket.Category,
             Building = ticket.Building,
+            Floor = ticket.Floor,
             Room = ticket.Room,
             Description = ticket.Description,
             Priority = ticket.Priority.ToString(),
@@ -206,7 +227,20 @@ public class TechnicianService : ITechnicianService
                 Id = activeAssignment.Technician.Id,
                 FullName = activeAssignment.Technician.FullName,
                 Email = activeAssignment.Technician.Email!
-            } : null
+            } : null,
+            Images = ticket.Images?.Select(i => new FixMyCampus.Application.DTOs.Tickets.TicketImageDto
+            {
+                Id = i.Id,
+                TicketId = i.TicketId,
+                Category = i.Category.ToString(),
+                Url = $"/api/Tickets/{i.TicketId}/images/{i.Id}/file",
+                FileName = i.OriginalFileName,
+                ContentType = i.ContentType,
+                FileSize = i.FileSize,
+                UploaderId = i.UploaderId,
+                UploaderName = string.Empty,
+                UploadedAt = i.UploadedAt
+            }).OrderBy(i => i.UploadedAt).ToList() ?? new List<FixMyCampus.Application.DTOs.Tickets.TicketImageDto>()
         };
     }
 }

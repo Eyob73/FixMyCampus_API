@@ -18,6 +18,9 @@ public class CreateTicketRequest
     [StringLength(50, ErrorMessage = "Building cannot exceed 50 characters")]
     public string Building { get; set; } = string.Empty;
 
+    [StringLength(50, ErrorMessage = "Floor cannot exceed 50 characters")]
+    public string? Floor { get; set; }
+
     public string? Room { get; set; }
 
     [Required(ErrorMessage = "Description is required")]
@@ -32,6 +35,7 @@ public class TicketFilterRequest
     public TicketStatus? Status { get; set; }
     public string? Category { get; set; }
     public string? Building { get; set; }
+    public string? Floor { get; set; }
     public TicketPriority? Priority { get; set; }
 }
 
@@ -41,6 +45,7 @@ public class TicketDto
     public string Title { get; set; } = string.Empty;
     public string Category { get; set; } = string.Empty;
     public string Building { get; set; } = string.Empty;
+    public string? Floor { get; set; }
     public string? Room { get; set; }
     public string Description { get; set; } = string.Empty;
     public string Priority { get; set; } = string.Empty;
@@ -49,12 +54,27 @@ public class TicketDto
     public UserDto? AssignedTechnician { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public List<TicketImageDto> Images { get; set; } = new List<TicketImageDto>();
 }
 
 public class TicketDetailsDto : TicketDto
 {
     public List<string> InternalNotes { get; set; } = new List<string>();
     public List<TicketCommentDto> Comments { get; set; } = new List<TicketCommentDto>();
+}
+
+public class TicketImageDto
+{
+    public Guid Id { get; set; }
+    public Guid TicketId { get; set; }
+    public string Category { get; set; } = string.Empty;
+    public string Url { get; set; } = string.Empty;
+    public string FileName { get; set; } = string.Empty;
+    public string ContentType { get; set; } = string.Empty;
+    public long FileSize { get; set; }
+    public Guid UploaderId { get; set; }
+    public string UploaderName { get; set; } = string.Empty;
+    public DateTime UploadedAt { get; set; }
 }
 
 public class TicketHistoryDto
@@ -100,4 +120,8 @@ public class AddCommentRequest
 public class ResolveTicketRequest
 {
     public string? ResolutionNote { get; set; }
+    public string? ResolutionDescription { get; set; }
+    public string? WorkPerformed { get; set; }
+    public string? MaterialsUsed { get; set; }
+    public string? AdditionalNotes { get; set; }
 }

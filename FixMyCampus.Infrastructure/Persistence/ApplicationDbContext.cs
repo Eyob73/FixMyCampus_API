@@ -11,6 +11,10 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityR
     public DbSet<TicketAssignment> TicketAssignments => Set<TicketAssignment>();
     public DbSet<TicketHistory> TicketHistories => Set<TicketHistory>();
     public DbSet<TicketComment> TicketComments => Set<TicketComment>();
+    public DbSet<Building> Buildings => Set<Building>();
+    public DbSet<Category> Categories => Set<Category>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<TicketImage> TicketImages => Set<TicketImage>();
 
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
     {

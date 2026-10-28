@@ -85,4 +85,42 @@ public class TechnicianController : ControllerBase
             return BadRequest(new { Message = ex.Message });
         }
     }
+
+    [HttpPost("tickets/{id}/images")]
+    public async Task<IActionResult> UploadResolutionImages(Guid id, [FromForm] List<IFormFile> files)
+    {
+        try
+        {
+            if (files == null || files.Count == 0)
+            {
+                if (Request.HasFormContentType && Request.Form.Files.Count > 0)
+                {
+                    files = Request.Form.Files.ToList();
+                }
+                else
+                {
+                    return BadRequest(new { Message = "No evidence files provided." });
+                }
+            }
+
+            var images = await _technicianService.UploadResolutionImagesAsync(id, CurrentUserId, files);
+            return Ok(images);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { Message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { Message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
+    }
 }

@@ -12,10 +12,12 @@ namespace FixMyCampus.Api.Controllers;
 public class AdminController : ControllerBase
 {
     private readonly IAdminService _adminService;
+    private readonly ITicketService _ticketService;
 
-    public AdminController(IAdminService adminService)
+    public AdminController(IAdminService adminService, ITicketService ticketService)
     {
         _adminService = adminService;
+        _ticketService = ticketService;
     }
 
     private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -90,6 +92,26 @@ public class AdminController : ControllerBase
         catch (InvalidOperationException ex)
         {
             return Conflict(new { Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
+    }
+
+    [HttpPut("tickets/{id}/status")]
+    [HttpPatch("tickets/{id}/status")]
+    public async Task<IActionResult> UpdateTicketStatus(Guid id, [FromBody] UpdateStatusRequest request)
+    {
+        try
+        {
+            var status = request.ParsedStatus;
+            var ticket = await _ticketService.UpdateStatusAsync(id, CurrentUserId, true, status, request.Note);
+            return Ok(ticket);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { Message = "Ticket not found" });
         }
         catch (Exception ex)
         {

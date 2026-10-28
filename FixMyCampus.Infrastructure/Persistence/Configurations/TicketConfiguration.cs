@@ -18,6 +18,9 @@ public class TicketConfiguration : IEntityTypeConfiguration<Ticket>
             .IsRequired()
             .HasMaxLength(100);
 
+        builder.Property(t => t.Floor)
+            .HasMaxLength(50);
+
         builder.Property(t => t.Room)
             .HasMaxLength(50);
 

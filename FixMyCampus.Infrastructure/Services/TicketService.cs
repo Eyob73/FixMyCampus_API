@@ -1,9 +1,11 @@
+using FixMyCampus.Application.Common;
 using FixMyCampus.Application.DTOs.Tickets;
 using FixMyCampus.Application.DTOs.Users;
 using FixMyCampus.Application.Interfaces;
 using FixMyCampus.Domain.Entities;
 using FixMyCampus.Domain.Enums;
 using FixMyCampus.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace FixMyCampus.Infrastructure.Services;
@@ -11,53 +13,106 @@ namespace FixMyCampus.Infrastructure.Services;
 public class TicketService : ITicketService
 {
     private readonly ApplicationDbContext _context;
+    private readonly IFileStorageService _fileStorageService;
 
-    public TicketService(ApplicationDbContext context)
+    public TicketService(ApplicationDbContext context, IFileStorageService fileStorageService)
     {
         _context = context;
+        _fileStorageService = fileStorageService;
     }
 
-    public async Task<TicketDto> CreateTicketAsync(Guid reporterId, CreateTicketRequest request)
+    public async Task<TicketDto> CreateTicketAsync(Guid reporterId, CreateTicketRequest request, IEnumerable<IFormFile>? files = null)
     {
         var reporter = await _context.Users.FindAsync(reporterId) 
             ?? throw new Exception("Reporter not found");
 
-        var ticket = new Ticket
+        var fileList = files?.Where(f => f != null && f.Length > 0).ToList() ?? new List<IFormFile>();
+        if (fileList.Count > FileValidator.MaxImageCount)
         {
-            Id = Guid.NewGuid(),
-            ReporterId = reporterId,
-            Category = request.Category,
-            Building = request.Building,
-            Room = request.Room,
-            Description = request.Description,
-            Title = request.Title,
-            Priority = request.Priority,
-            Status = TicketStatus.New,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
+            throw new ArgumentException($"Cannot attach more than {FileValidator.MaxImageCount} images to an issue.");
+        }
 
-        var history = new TicketHistory
+        // Validate each file before doing any storage or DB changes
+        foreach (var file in fileList)
         {
-            Id = Guid.NewGuid(),
-            TicketId = ticket.Id,
-            OldStatus = null,
-            NewStatus = TicketStatus.New,
-            ChangedById = reporterId,
-            ChangedAt = DateTime.UtcNow
-        };
+            FileValidator.ValidateImageFile(file);
+        }
 
-        _context.Tickets.Add(ticket);
-        _context.TicketHistories.Add(history);
-        await _context.SaveChangesAsync();
+        var savedFilePaths = new List<(string storagePath, IFormFile file)>();
 
-        return await MapToDtoAsync(ticket);
+        try
+        {
+            foreach (var file in fileList)
+            {
+                var storagePath = await _fileStorageService.SaveFileAsync(file, "images");
+                savedFilePaths.Add((storagePath, file));
+            }
+
+            var ticket = new Ticket
+            {
+                Id = Guid.NewGuid(),
+                ReporterId = reporterId,
+                Category = request.Category,
+                Building = request.Building,
+                Floor = request.Floor,
+                Room = request.Room,
+                Description = request.Description,
+                Title = request.Title,
+                Priority = request.Priority,
+                Status = TicketStatus.New,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            var history = new TicketHistory
+            {
+                Id = Guid.NewGuid(),
+                TicketId = ticket.Id,
+                OldStatus = null,
+                NewStatus = TicketStatus.New,
+                ChangedById = reporterId,
+                ChangedAt = DateTime.UtcNow
+            };
+
+            _context.Tickets.Add(ticket);
+            _context.TicketHistories.Add(history);
+
+            foreach (var (storagePath, file) in savedFilePaths)
+            {
+                var ticketImage = new TicketImage
+                {
+                    Id = Guid.NewGuid(),
+                    TicketId = ticket.Id,
+                    Category = ImageCategory.ReportedIssue,
+                    StoragePath = storagePath,
+                    OriginalFileName = Path.GetFileName(file.FileName),
+                    ContentType = file.ContentType,
+                    FileSize = file.Length,
+                    UploaderId = reporterId,
+                    UploadedAt = DateTime.UtcNow
+                };
+                _context.TicketImages.Add(ticketImage);
+            }
+
+            await _context.SaveChangesAsync();
+            return await MapToDtoAsync(ticket);
+        }
+        catch
+        {
+            // Avoid orphaned files by deleting anything that was saved to disk
+            foreach (var (storagePath, _) in savedFilePaths)
+            {
+                await _fileStorageService.DeleteFileAsync(storagePath);
+            }
+            throw;
+        }
     }
 
     public async Task<IReadOnlyList<TicketDto>> GetTicketsAsync(TicketFilterRequest? filter)
     {
         var query = _context.Tickets
             .Include(t => t.Reporter)
+            .Include(t => t.Images)
             .Include(t => t.Assignments)
                 .ThenInclude(a => a.Technician)
             .AsNoTracking()
@@ -68,6 +123,7 @@ public class TicketService : ITicketService
             if (filter.Status.HasValue) query = query.Where(t => t.Status == filter.Status.Value);
             if (!string.IsNullOrEmpty(filter.Category)) query = query.Where(t => t.Category.Contains(filter.Category));
             if (!string.IsNullOrEmpty(filter.Building)) query = query.Where(t => t.Building.Contains(filter.Building));
+            if (!string.IsNullOrEmpty(filter.Floor)) query = query.Where(t => t.Floor != null && t.Floor.Contains(filter.Floor));
         }
 
         var tickets = await query.OrderByDescending(t => t.CreatedAt).ToListAsync();
@@ -78,6 +134,7 @@ public class TicketService : ITicketService
     {
         var query = _context.Tickets
             .Include(t => t.Reporter)
+            .Include(t => t.Images)
             .Include(t => t.Assignments)
                 .ThenInclude(a => a.Technician)
             .Where(t => t.ReporterId == reporterId)
@@ -93,6 +150,10 @@ public class TicketService : ITicketService
             .Include(t => t.Reporter)
             .Include(t => t.Assignments)
                 .ThenInclude(a => a.Technician)
+            .Include(t => t.Comments)
+                .ThenInclude(c => c.Author)
+            .Include(t => t.Images)
+                .ThenInclude(i => i.Uploader)
             .AsNoTracking()
             .FirstOrDefaultAsync(t => t.Id == ticketId);
 
@@ -111,6 +172,7 @@ public class TicketService : ITicketService
             Title = dto.Title,
             Category = dto.Category,
             Building = dto.Building,
+            Floor = dto.Floor,
             Room = dto.Room,
             Description = dto.Description,
             Priority = dto.Priority,
@@ -126,10 +188,23 @@ public class TicketService : ITicketService
                 TicketId = c.TicketId,
                 AuthorId = c.AuthorId,
                 AuthorName = c.Author?.FullName ?? string.Empty,
-                AuthorRole = "", // Can be filled if role is available, leaving empty for now
+                AuthorRole = "",
                 Content = c.Content,
                 CreatedAt = c.CreatedAt
-            }).OrderBy(c => c.CreatedAt).ToList() ?? new List<TicketCommentDto>()
+            }).OrderBy(c => c.CreatedAt).ToList() ?? new List<TicketCommentDto>(),
+            Images = ticket.Images?.Select(i => new TicketImageDto
+            {
+                Id = i.Id,
+                TicketId = i.TicketId,
+                Category = i.Category.ToString(),
+                Url = $"/api/Tickets/{i.TicketId}/images/{i.Id}/file",
+                FileName = i.OriginalFileName,
+                ContentType = i.ContentType,
+                FileSize = i.FileSize,
+                UploaderId = i.UploaderId,
+                UploaderName = i.Uploader?.FullName ?? string.Empty,
+                UploadedAt = i.UploadedAt
+            }).OrderBy(i => i.UploadedAt).ToList() ?? new List<TicketImageDto>()
         };
     }
 
@@ -249,6 +324,7 @@ public class TicketService : ITicketService
             Title = ticket.Title,
             Category = ticket.Category,
             Building = ticket.Building,
+            Floor = ticket.Floor,
             Room = ticket.Room,
             Description = ticket.Description,
             Priority = ticket.Priority.ToString(),
@@ -266,7 +342,20 @@ public class TicketService : ITicketService
                 Id = activeAssignment.Technician.Id,
                 FullName = activeAssignment.Technician.FullName,
                 Email = activeAssignment.Technician.Email!
-            } : null
+            } : null,
+            Images = ticket.Images?.Select(i => new TicketImageDto
+            {
+                Id = i.Id,
+                TicketId = i.TicketId,
+                Category = i.Category.ToString(),
+                Url = $"/api/Tickets/{i.TicketId}/images/{i.Id}/file",
+                FileName = i.OriginalFileName,
+                ContentType = i.ContentType,
+                FileSize = i.FileSize,
+                UploaderId = i.UploaderId,
+                UploaderName = string.Empty,
+                UploadedAt = i.UploadedAt
+            }).OrderBy(i => i.UploadedAt).ToList() ?? new List<TicketImageDto>()
         };
     }
 
@@ -350,5 +439,157 @@ public class TicketService : ITicketService
         }
 
         return await GetTicketByIdAsync(ticketId, currentUserId, isAdmin);
+    }
+
+    public async Task<TicketDetailsDto> UpdateStatusAsync(Guid ticketId, Guid currentUserId, bool isAdmin, TicketStatus newStatus, string? note)
+    {
+        var ticket = await _context.Tickets
+            .Include(t => t.Assignments)
+            .FirstOrDefaultAsync(t => t.Id == ticketId);
+
+        if (ticket == null) throw new KeyNotFoundException("Ticket not found");
+
+        if (!isAdmin)
+        {
+            var isTechnician = ticket.Assignments.Any(a => a.TechnicianId == currentUserId && a.UnassignedAt == null);
+            if (!isTechnician) throw new UnauthorizedAccessException("Not authorized to update status on this ticket");
+        }
+
+        if (ticket.Status != newStatus)
+        {
+            var oldStatus = ticket.Status;
+            ticket.Status = newStatus;
+            ticket.UpdatedAt = DateTime.UtcNow;
+
+            var history = new TicketHistory
+            {
+                Id = Guid.NewGuid(),
+                TicketId = ticket.Id,
+                OldStatus = oldStatus,
+                NewStatus = newStatus,
+                Note = !string.IsNullOrWhiteSpace(note) ? note : $"Status transitioned to {newStatus}",
+                ChangedById = currentUserId,
+                ChangedAt = DateTime.UtcNow
+            };
+
+            _context.TicketHistories.Add(history);
+            await _context.SaveChangesAsync();
+        }
+
+        return await GetTicketByIdAsync(ticketId, currentUserId, isAdmin);
+    }
+
+    public async Task<List<TicketImageDto>> AddTicketImagesAsync(
+        Guid ticketId,
+        Guid currentUserId,
+        bool isAdmin,
+        ImageCategory category,
+        IEnumerable<IFormFile> files)
+    {
+        var ticket = await _context.Tickets
+            .Include(t => t.Assignments)
+            .FirstOrDefaultAsync(t => t.Id == ticketId);
+
+        if (ticket == null) throw new KeyNotFoundException("Ticket not found");
+
+        if (!isAdmin)
+        {
+            if (category == ImageCategory.ReportedIssue)
+            {
+                if (ticket.ReporterId != currentUserId)
+                    throw new UnauthorizedAccessException("Only the reporter or administrator can add reported issue images.");
+            }
+            else if (category == ImageCategory.ResolutionEvidence)
+            {
+                var isAssigned = ticket.Assignments.Any(a => a.TechnicianId == currentUserId && a.UnassignedAt == null);
+                if (!isAssigned)
+                    throw new UnauthorizedAccessException("Only the assigned technician or administrator can upload resolution evidence.");
+            }
+        }
+
+        var fileList = files?.Where(f => f != null && f.Length > 0).ToList() ?? new List<IFormFile>();
+        if (fileList.Count == 0)
+        {
+            throw new ArgumentException("No valid image files provided for upload.");
+        }
+
+        if (fileList.Count > FileValidator.MaxImageCount)
+        {
+            throw new ArgumentException($"Cannot upload more than {FileValidator.MaxImageCount} images at once.");
+        }
+
+        foreach (var file in fileList)
+        {
+            FileValidator.ValidateImageFile(file);
+        }
+
+        var uploader = await _context.Users.FindAsync(currentUserId);
+        var savedFilePaths = new List<(string storagePath, IFormFile file)>();
+        var addedImages = new List<TicketImage>();
+
+        try
+        {
+            foreach (var file in fileList)
+            {
+                var storagePath = await _fileStorageService.SaveFileAsync(file, "images");
+                savedFilePaths.Add((storagePath, file));
+            }
+
+            foreach (var (storagePath, file) in savedFilePaths)
+            {
+                var img = new TicketImage
+                {
+                    Id = Guid.NewGuid(),
+                    TicketId = ticket.Id,
+                    Category = category,
+                    StoragePath = storagePath,
+                    OriginalFileName = Path.GetFileName(file.FileName),
+                    ContentType = file.ContentType,
+                    FileSize = file.Length,
+                    UploaderId = currentUserId,
+                    UploadedAt = DateTime.UtcNow
+                };
+                _context.TicketImages.Add(img);
+                addedImages.Add(img);
+            }
+
+            ticket.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            return addedImages.Select(i => new TicketImageDto
+            {
+                Id = i.Id,
+                TicketId = i.TicketId,
+                Category = i.Category.ToString(),
+                Url = $"/api/Tickets/{i.TicketId}/images/{i.Id}/file",
+                FileName = i.OriginalFileName,
+                ContentType = i.ContentType,
+                FileSize = i.FileSize,
+                UploaderId = i.UploaderId,
+                UploaderName = uploader?.FullName ?? string.Empty,
+                UploadedAt = i.UploadedAt
+            }).ToList();
+        }
+        catch
+        {
+            foreach (var (storagePath, _) in savedFilePaths)
+            {
+                await _fileStorageService.DeleteFileAsync(storagePath);
+            }
+            throw;
+        }
+    }
+
+    public async Task<(Stream Stream, string ContentType, string FileName)> GetTicketImageStreamAsync(
+        Guid ticketId,
+        Guid imageId)
+    {
+        var image = await _context.TicketImages
+            .AsNoTracking()
+            .FirstOrDefaultAsync(i => i.Id == imageId && i.TicketId == ticketId);
+
+        if (image == null) throw new KeyNotFoundException("Image not found");
+
+        return await _fileStorageService.GetFileAsync(image.StoragePath, image.OriginalFileName, image.ContentType);
     }
 }

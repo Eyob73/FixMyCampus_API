@@ -9,4 +9,5 @@ public interface ITechnicianService
     Task<IReadOnlyList<TicketDto>> GetAssignedTicketsAsync(Guid technicianId, TicketFilterRequest? filter);
     Task<TicketDto> StartWorkAsync(Guid ticketId, Guid technicianId);
     Task<TicketDto> ResolveTicketAsync(Guid ticketId, Guid technicianId, ResolveTicketRequest request);
+    Task<List<TicketImageDto>> UploadResolutionImagesAsync(Guid ticketId, Guid technicianId, IEnumerable<Microsoft.AspNetCore.Http.IFormFile> files);
 }

@@ -12,5 +12,7 @@ public class ApplicationUserConfiguration : IEntityTypeConfiguration<Application
             .IsRequired()
             .HasMaxLength(150);
 
+        builder.Property(x => x.IsActive)
+            .HasDefaultValue(true);
     }
 }
