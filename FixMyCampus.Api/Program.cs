@@ -98,6 +98,7 @@ builder.Services.AddAuthentication(options =>
 
 // Register Application Services
 builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
+builder.Services.AddScoped<IDuplicateDetectionService, DuplicateDetectionService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ITicketService, TicketService>();
 builder.Services.AddScoped<IAdminService, AdminService>();

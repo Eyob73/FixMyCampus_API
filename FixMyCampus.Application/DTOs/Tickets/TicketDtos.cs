@@ -28,6 +28,8 @@ public class CreateTicketRequest
     public string Description { get; set; } = string.Empty;
 
     public TicketPriority Priority { get; set; } = TicketPriority.Medium;
+
+    public bool IgnorePotentialDuplicates { get; set; } = false;
 }
 
 public class TicketFilterRequest

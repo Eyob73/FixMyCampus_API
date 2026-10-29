@@ -1,12 +1,16 @@
 using FixMyCampus.Application.Common;
 using FixMyCampus.Application.DTOs.Tickets;
 using FixMyCampus.Application.DTOs.Users;
+using FixMyCampus.Application.Exceptions;
 using FixMyCampus.Application.Interfaces;
 using FixMyCampus.Domain.Entities;
 using FixMyCampus.Domain.Enums;
 using FixMyCampus.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Concurrent;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace FixMyCampus.Infrastructure.Services;
 
@@ -14,11 +18,22 @@ public class TicketService : ITicketService
 {
     private readonly ApplicationDbContext _context;
     private readonly IFileStorageService _fileStorageService;
+    private readonly IDuplicateDetectionService _duplicateDetectionService;
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> FallbackLocks = new();
 
-    public TicketService(ApplicationDbContext context, IFileStorageService fileStorageService)
+    public TicketService(
+        ApplicationDbContext context,
+        IFileStorageService fileStorageService,
+        IDuplicateDetectionService duplicateDetectionService)
     {
         _context = context;
         _fileStorageService = fileStorageService;
+        _duplicateDetectionService = duplicateDetectionService;
+    }
+
+    public async Task<DuplicateCheckResponse> CheckDuplicateTicketAsync(DuplicateCheckRequest request)
+    {
+        return await _duplicateDetectionService.CheckDuplicatesAsync(request);
     }
 
     public async Task<TicketDto> CreateTicketAsync(Guid reporterId, CreateTicketRequest request, IEnumerable<IFormFile>? files = null)
@@ -39,9 +54,59 @@ public class TicketService : ITicketService
         }
 
         var savedFilePaths = new List<(string storagePath, IFormFile file)>();
+        var lockKeyString = $"{request.Category?.Trim().ToLowerInvariant()}:{request.Building?.Trim().ToLowerInvariant()}:{DuplicateDetectionService.NormalizeRoom(request.Room)}";
+        SemaphoreSlim? fallbackSemaphore = null;
+
+        var isNpgsql = _context.Database.IsNpgsql();
+        if (!isNpgsql)
+        {
+            fallbackSemaphore = FallbackLocks.GetOrAdd(lockKeyString, _ => new SemaphoreSlim(1, 1));
+            await fallbackSemaphore.WaitAsync();
+        }
+
+        var isRelational = _context.Database.IsRelational();
+        var transaction = (isRelational && _context.Database.CurrentTransaction == null) 
+            ? await _context.Database.BeginTransactionAsync() 
+            : null;
 
         try
         {
+            if (isNpgsql)
+            {
+                var pgLockKey = ComputeAdvisoryLockKey(request.Category ?? string.Empty, request.Building ?? string.Empty, request.Room);
+                await _context.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0});", pgLockKey);
+            }
+
+            // 1. Perform duplicate detection within the locked transaction
+            var dupCheck = await _duplicateDetectionService.CheckDuplicatesAsync(new DuplicateCheckRequest
+            {
+                Category = request.Category,
+                Building = request.Building,
+                Floor = request.Floor,
+                Room = request.Room,
+                Title = request.Title,
+                Description = request.Description
+            });
+
+            if (dupCheck.IsDuplicate)
+            {
+                throw new DuplicateTicketException(
+                    dupCheck.Message ?? "A matching active issue has already been reported.",
+                    dupCheck.PrimaryMatch!,
+                    dupCheck.Matches,
+                    isConfirmed: true);
+            }
+
+            if (dupCheck.HasPotentialDuplicates && !request.IgnorePotentialDuplicates)
+            {
+                throw new DuplicateTicketException(
+                    dupCheck.Message ?? "A similar active issue was found. Please review existing issues before submitting.",
+                    dupCheck.PrimaryMatch!,
+                    dupCheck.Matches,
+                    isConfirmed: false);
+            }
+
+            // 2. Save attachments after duplicate check passes
             foreach (var file in fileList)
             {
                 var storagePath = await _fileStorageService.SaveFileAsync(file, "images");
@@ -95,10 +160,21 @@ public class TicketService : ITicketService
             }
 
             await _context.SaveChangesAsync();
+
+            if (transaction != null)
+            {
+                await transaction.CommitAsync();
+            }
+
             return await MapToDtoAsync(ticket);
         }
         catch
         {
+            if (transaction != null)
+            {
+                await transaction.RollbackAsync();
+            }
+
             // Avoid orphaned files by deleting anything that was saved to disk
             foreach (var (storagePath, _) in savedFilePaths)
             {
@@ -106,6 +182,21 @@ public class TicketService : ITicketService
             }
             throw;
         }
+        finally
+        {
+            if (fallbackSemaphore != null)
+            {
+                fallbackSemaphore.Release();
+            }
+        }
+    }
+
+    private static long ComputeAdvisoryLockKey(string category, string building, string? room)
+    {
+        var raw = $"{category.Trim().ToLowerInvariant()}:{building.Trim().ToLowerInvariant()}:{DuplicateDetectionService.NormalizeRoom(room)}";
+        using var sha = SHA256.Create();
+        var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(raw));
+        return BitConverter.ToInt64(hash, 0);
     }
 
     public async Task<IReadOnlyList<TicketDto>> GetTicketsAsync(TicketFilterRequest? filter)

@@ -37,5 +37,7 @@ public class TicketConfiguration : IEntityTypeConfiguration<Ticket>
 
         builder.Property(t => t.InternalNotes)
             .HasDefaultValueSql("'{}'::text[]");
+
+        builder.HasIndex(t => new { t.Building, t.Category, t.Status });
     }
 }

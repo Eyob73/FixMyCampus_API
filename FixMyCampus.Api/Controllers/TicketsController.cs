@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using FixMyCampus.Application.DTOs.Tickets;
+using FixMyCampus.Application.Exceptions;
 using FixMyCampus.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -41,7 +42,8 @@ public class TicketsController : ControllerBase
                     Floor = form.ContainsKey("floor") ? form["floor"].ToString() : null,
                     Room = form.ContainsKey("room") ? form["room"].ToString() : null,
                     Description = form["description"].ToString(),
-                    Priority = Enum.TryParse<FixMyCampus.Domain.Enums.TicketPriority>(form["priority"].ToString(), true, out var p) ? p : FixMyCampus.Domain.Enums.TicketPriority.Medium
+                    Priority = Enum.TryParse<FixMyCampus.Domain.Enums.TicketPriority>(form["priority"].ToString(), true, out var p) ? p : FixMyCampus.Domain.Enums.TicketPriority.Medium,
+                    IgnorePotentialDuplicates = form.ContainsKey("ignorePotentialDuplicates") && bool.TryParse(form["ignorePotentialDuplicates"], out var ign) && ign
                 };
                 files = form.Files.ToList();
             }
@@ -56,6 +58,15 @@ public class TicketsController : ControllerBase
             var ticket = await _ticketService.CreateTicketAsync(CurrentUserId, request, files);
             return CreatedAtAction(nameof(GetTicketById), new { id = ticket.Id }, ticket);
         }
+        catch (DuplicateTicketException ex)
+        {
+            return StatusCode(StatusCodes.Status409Conflict, new DuplicateConflictResponse
+            {
+                Message = ex.Message,
+                DuplicateTicket = ex.DuplicateTicket,
+                Matches = ex.Matches.ToList()
+            });
+        }
         catch (ArgumentException ex)
         {
             return BadRequest(new { Message = ex.Message });
@@ -64,6 +75,14 @@ public class TicketsController : ControllerBase
         {
             return BadRequest(new { Message = ex.Message });
         }
+    }
+
+    [HttpPost("check-duplicate")]
+    [Authorize(Roles = "Reporter")]
+    public async Task<IActionResult> CheckDuplicate([FromBody] DuplicateCheckRequest request)
+    {
+        var result = await _ticketService.CheckDuplicateTicketAsync(request);
+        return Ok(result);
     }
 
     [HttpGet]

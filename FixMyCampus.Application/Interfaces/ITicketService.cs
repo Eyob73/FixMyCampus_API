@@ -17,4 +17,5 @@ public interface ITicketService
     Task<TicketDetailsDto> UpdateStatusAsync(Guid ticketId, Guid currentUserId, bool isAdmin, FixMyCampus.Domain.Enums.TicketStatus newStatus, string? note);
     Task<List<TicketImageDto>> AddTicketImagesAsync(Guid ticketId, Guid currentUserId, bool isAdmin, FixMyCampus.Domain.Enums.ImageCategory category, IEnumerable<Microsoft.AspNetCore.Http.IFormFile> files);
     Task<(Stream Stream, string ContentType, string FileName)> GetTicketImageStreamAsync(Guid ticketId, Guid imageId);
+    Task<DuplicateCheckResponse> CheckDuplicateTicketAsync(DuplicateCheckRequest request);
 }
