@@ -19,16 +19,19 @@ public class TicketService : ITicketService
     private readonly ApplicationDbContext _context;
     private readonly IFileStorageService _fileStorageService;
     private readonly IDuplicateDetectionService _duplicateDetectionService;
+    private readonly INotificationService _notificationService;
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> FallbackLocks = new();
 
     public TicketService(
         ApplicationDbContext context,
         IFileStorageService fileStorageService,
-        IDuplicateDetectionService duplicateDetectionService)
+        IDuplicateDetectionService duplicateDetectionService,
+        INotificationService notificationService)
     {
         _context = context;
         _fileStorageService = fileStorageService;
         _duplicateDetectionService = duplicateDetectionService;
+        _notificationService = notificationService;
     }
 
     public async Task<DuplicateCheckResponse> CheckDuplicateTicketAsync(DuplicateCheckRequest request)
@@ -164,6 +167,19 @@ public class TicketService : ITicketService
             if (transaction != null)
             {
                 await transaction.CommitAsync();
+            }
+
+            try
+            {
+                await _notificationService.NotifyAdministratorsAsync(
+                    "New Issue Reported",
+                    $"{reporter.FullName} reported a new issue: \"{ticket.Title}\".",
+                    "NewIssueReported",
+                    ticket.Id);
+            }
+            catch
+            {
+                // Real-time notification failure must not fail ticket creation
             }
 
             return await MapToDtoAsync(ticket);
@@ -565,6 +581,49 @@ public class TicketService : ITicketService
 
             _context.TicketHistories.Add(history);
             await _context.SaveChangesAsync();
+
+            try
+            {
+                if (newStatus == TicketStatus.Resolved && oldStatus != TicketStatus.Resolved)
+                {
+                    // 1. Notify reporter
+                    await _notificationService.CreateAndSendNotificationAsync(
+                        ticket.ReporterId,
+                        "Your Reported Issue Has Been Resolved",
+                        $"The issue \"{ticket.Title}\" that you reported has been successfully resolved.",
+                        "IssueResolved",
+                        ticket.Id);
+
+                    // 2. If updated by technician, notify administrators
+                    if (!isAdmin)
+                    {
+                        var changer = await _context.Users.FindAsync(currentUserId);
+                        var changerName = changer?.FullName ?? "A technician";
+                        await _notificationService.NotifyAdministratorsAsync(
+                            "Issue Resolved",
+                            $"Technician {changerName} has successfully resolved \"{ticket.Title}\".",
+                            "IssueResolved",
+                            ticket.Id);
+                    }
+                }
+                else if (newStatus == TicketStatus.InProgress && oldStatus != TicketStatus.InProgress)
+                {
+                    if (!isAdmin)
+                    {
+                        var changer = await _context.Users.FindAsync(currentUserId);
+                        var changerName = changer?.FullName ?? "A technician";
+                        await _notificationService.NotifyAdministratorsAsync(
+                            "Technician Started Working",
+                            $"Technician {changerName} has started working on \"{ticket.Title}\".",
+                            "IssueInProgress",
+                            ticket.Id);
+                    }
+                }
+            }
+            catch
+            {
+                // Notification failure must not affect business flow
+            }
         }
 
         return await GetTicketByIdAsync(ticketId, currentUserId, isAdmin);

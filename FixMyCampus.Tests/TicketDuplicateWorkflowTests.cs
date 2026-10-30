@@ -45,7 +45,8 @@ public class TicketDuplicateWorkflowTests
 
         var storage = new TestFileStorageService();
         var duplicateService = new DuplicateDetectionService(context);
-        var ticketService = new TicketService(context, storage, duplicateService);
+        var notificationService = new TestNotificationService();
+        var ticketService = new TicketService(context, storage, duplicateService, notificationService);
 
         return (context, ticketService, storage, reporterId, otherReporterId);
     }

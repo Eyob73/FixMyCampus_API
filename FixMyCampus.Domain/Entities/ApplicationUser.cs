@@ -27,4 +27,5 @@ public class ApplicationUser : IdentityUser<Guid>
 
     public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
     public ICollection<TicketImage> UploadedImages { get; set; } = new List<TicketImage>();
+    public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
 }

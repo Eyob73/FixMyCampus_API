@@ -23,6 +23,7 @@ public class Ticket
     public ICollection<TicketHistory> Histories { get; set; } = new List<TicketHistory>();
     public ICollection<TicketComment> Comments { get; set; } = new List<TicketComment>();
     public ICollection<TicketImage> Images { get; set; } = new List<TicketImage>();
+    public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
     
     public List<string> InternalNotes { get; set; } = new List<string>();
 }

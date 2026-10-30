@@ -212,6 +212,57 @@ namespace FixMyCampus.Infrastructure.Migrations
                     b.ToTable("Categories", (string)null);
                 });
 
+            modelBuilder.Entity("FixMyCampus.Domain.Entities.Notification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("TicketId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("IsRead");
+
+                    b.HasIndex("TicketId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("UserId", "IsRead", "CreatedAt");
+
+                    b.ToTable("Notifications");
+                });
+
             modelBuilder.Entity("FixMyCampus.Domain.Entities.RefreshToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -327,6 +378,8 @@ namespace FixMyCampus.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ReporterId");
+
+                    b.HasIndex("Building", "Category", "Status");
 
                     b.ToTable("Tickets");
                 });
@@ -603,6 +656,24 @@ namespace FixMyCampus.Infrastructure.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("FixMyCampus.Domain.Entities.Notification", b =>
+                {
+                    b.HasOne("FixMyCampus.Domain.Entities.Ticket", "Ticket")
+                        .WithMany("Notifications")
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("FixMyCampus.Domain.Entities.ApplicationUser", "User")
+                        .WithMany("Notifications")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Ticket");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("FixMyCampus.Domain.Entities.RefreshToken", b =>
                 {
                     b.HasOne("FixMyCampus.Domain.Entities.ApplicationUser", "User")
@@ -764,6 +835,8 @@ namespace FixMyCampus.Infrastructure.Migrations
                 {
                     b.Navigation("CreatedAssignments");
 
+                    b.Navigation("Notifications");
+
                     b.Navigation("RefreshTokens");
 
                     b.Navigation("ReportedTickets");
@@ -784,6 +857,8 @@ namespace FixMyCampus.Infrastructure.Migrations
                     b.Navigation("Histories");
 
                     b.Navigation("Images");
+
+                    b.Navigation("Notifications");
                 });
 #pragma warning restore 612, 618
         }

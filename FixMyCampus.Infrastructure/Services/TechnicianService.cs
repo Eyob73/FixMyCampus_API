@@ -13,11 +13,16 @@ public class TechnicianService : ITechnicianService
 {
     private readonly ApplicationDbContext _context;
     private readonly ITicketService _ticketService;
+    private readonly INotificationService _notificationService;
 
-    public TechnicianService(ApplicationDbContext context, ITicketService ticketService)
+    public TechnicianService(
+        ApplicationDbContext context,
+        ITicketService ticketService,
+        INotificationService notificationService)
     {
         _context = context;
         _ticketService = ticketService;
+        _notificationService = notificationService;
     }
 
     public async Task<TechnicianDashboardDto> GetDashboardAsync(Guid technicianId)
@@ -124,6 +129,21 @@ public class TechnicianService : ITechnicianService
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
 
+            try
+            {
+                var tech = await _context.Users.FindAsync(technicianId);
+                var techName = tech?.FullName ?? "A technician";
+                await _notificationService.NotifyAdministratorsAsync(
+                    "Technician Started Working",
+                    $"Technician {techName} has started working on \"{ticket.Title}\".",
+                    "IssueInProgress",
+                    ticketId);
+            }
+            catch
+            {
+                // Notification delivery failure must not affect business flow
+            }
+
             var assigned = await GetAssignedTicketsAsync(technicianId, null);
             return assigned.First(t => t.Id == ticketId);
         }
@@ -184,6 +204,30 @@ public class TechnicianService : ITechnicianService
 
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
+
+            try
+            {
+                // 1. Notify reporter
+                await _notificationService.CreateAndSendNotificationAsync(
+                    ticket.ReporterId,
+                    "Your Reported Issue Has Been Resolved",
+                    $"The issue \"{ticket.Title}\" that you reported has been successfully resolved.",
+                    "IssueResolved",
+                    ticketId);
+
+                // 2. Notify administrators
+                var tech = await _context.Users.FindAsync(technicianId);
+                var techName = tech?.FullName ?? "A technician";
+                await _notificationService.NotifyAdministratorsAsync(
+                    "Issue Resolved",
+                    $"Technician {techName} has successfully resolved \"{ticket.Title}\".",
+                    "IssueResolved",
+                    ticketId);
+            }
+            catch
+            {
+                // Notification delivery failure must not affect business flow
+            }
 
             var assigned = await GetAssignedTicketsAsync(technicianId, null);
             return assigned.First(t => t.Id == ticketId);

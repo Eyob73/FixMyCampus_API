@@ -15,12 +15,18 @@ public class AdminService : IAdminService
     private readonly ApplicationDbContext _context;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ITicketService _ticketService;
+    private readonly INotificationService _notificationService;
 
-    public AdminService(ApplicationDbContext context, UserManager<ApplicationUser> userManager, ITicketService ticketService)
+    public AdminService(
+        ApplicationDbContext context,
+        UserManager<ApplicationUser> userManager,
+        ITicketService ticketService,
+        INotificationService notificationService)
     {
         _context = context;
         _userManager = userManager;
         _ticketService = ticketService;
+        _notificationService = notificationService;
     }
 
     public async Task<AdminDashboardDto> GetDashboardAsync()
@@ -219,6 +225,20 @@ public class AdminService : IAdminService
 
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
+
+            try
+            {
+                await _notificationService.CreateAndSendNotificationAsync(
+                    technicianId,
+                    "New Issue Assigned",
+                    $"You have been assigned a new issue: \"{ticket.Title}\".",
+                    "IssueAssigned",
+                    ticketId);
+            }
+            catch
+            {
+                // Notification failure must not fail the assignment operation
+            }
 
             var tickets = await _ticketService.GetTicketsAsync(null);
             return tickets.First(t => t.Id == ticketId);
