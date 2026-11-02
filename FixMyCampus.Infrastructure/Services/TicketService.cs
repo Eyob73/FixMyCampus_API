@@ -83,8 +83,8 @@ public class TicketService : ITicketService
             // 1. Perform duplicate detection within the locked transaction
             var dupCheck = await _duplicateDetectionService.CheckDuplicatesAsync(new DuplicateCheckRequest
             {
-                Category = request.Category,
-                Building = request.Building,
+                Category = request.Category ?? string.Empty,
+                Building = request.Building ?? string.Empty,
                 Floor = request.Floor,
                 Room = request.Room,
                 Title = request.Title,
@@ -120,8 +120,8 @@ public class TicketService : ITicketService
             {
                 Id = Guid.NewGuid(),
                 ReporterId = reporterId,
-                Category = request.Category,
-                Building = request.Building,
+                Category = request.Category ?? string.Empty,
+                Building = request.Building ?? string.Empty,
                 Floor = request.Floor,
                 Room = request.Room,
                 Description = request.Description,
@@ -742,4 +742,34 @@ public class TicketService : ITicketService
 
         return await _fileStorageService.GetFileAsync(image.StoragePath, image.OriginalFileName, image.ContentType);
     }
+
+    public async Task DeleteTicketAsync(Guid ticketId, Guid currentUserId)
+    {
+        var ticket = await _context.Tickets
+            .FirstOrDefaultAsync(t => t.Id == ticketId);
+
+        if (ticket == null || ticket.IsDeleted)
+        {
+            throw new KeyNotFoundException($"Ticket with id '{ticketId}' was not found.");
+        }
+
+        ticket.IsDeleted = true;
+        ticket.DeletedAt = DateTime.UtcNow;
+        ticket.UpdatedAt = DateTime.UtcNow;
+
+        var history = new TicketHistory
+        {
+            Id = Guid.NewGuid(),
+            TicketId = ticket.Id,
+            OldStatus = ticket.Status,
+            NewStatus = ticket.Status,
+            Note = "Ticket deleted by administrator (soft delete).",
+            ChangedById = currentUserId,
+            ChangedAt = DateTime.UtcNow
+        };
+
+        _context.TicketHistories.Add(history);
+        await _context.SaveChangesAsync();
+    }
 }
+

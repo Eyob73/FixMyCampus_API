@@ -249,4 +249,9 @@ public class AdminService : IAdminService
             throw;
         }
     }
+
+    public async Task DeleteTicketAsync(Guid ticketId, Guid adminId)
+    {
+        await _ticketService.DeleteTicketAsync(ticketId, adminId);
+    }
 }

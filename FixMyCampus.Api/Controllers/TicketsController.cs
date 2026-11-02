@@ -312,4 +312,23 @@ public class TicketsController : ControllerBase
             return BadRequest(new { Message = ex.Message });
         }
     }
+
+    [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> DeleteTicket(Guid id)
+    {
+        try
+        {
+            await _ticketService.DeleteTicketAsync(id, CurrentUserId);
+            return NoContent();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { Message = "Ticket not found" });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
+    }
 }

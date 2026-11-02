@@ -16,6 +16,8 @@ public class Ticket
     public Guid ReporterId { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public bool IsDeleted { get; set; } = false;
+    public DateTime? DeletedAt { get; set; }
 
     public ApplicationUser Reporter { get; set; } = null!;
     

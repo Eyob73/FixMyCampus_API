@@ -12,4 +12,5 @@ public interface IAdminService
     Task<IReadOnlyList<ReporterDto>> GetReportersAsync();
     Task<TechnicianDto> CreateTechnicianAsync(CreateTechnicianDto request);
     Task<TicketDto> AssignTechnicianAsync(Guid ticketId, Guid technicianId, Guid adminId);
+    Task DeleteTicketAsync(Guid ticketId, Guid adminId);
 }

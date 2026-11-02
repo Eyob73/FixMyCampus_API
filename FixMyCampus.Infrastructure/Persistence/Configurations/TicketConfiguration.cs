@@ -38,6 +38,17 @@ public class TicketConfiguration : IEntityTypeConfiguration<Ticket>
         builder.Property(t => t.InternalNotes)
             .HasDefaultValueSql("'{}'::text[]");
 
+        builder.Property(t => t.IsDeleted)
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        builder.Property(t => t.DeletedAt)
+            .IsRequired(false);
+
+        builder.HasIndex(t => t.IsDeleted);
+
         builder.HasIndex(t => new { t.Building, t.Category, t.Status });
+
+        builder.HasQueryFilter(t => !t.IsDeleted);
     }
 }
