@@ -359,6 +359,10 @@ public static class DataSeeder
 
     private static async Task<ApplicationUser> EnsureUserAsync(UserManager<ApplicationUser> userManager, string email, string fullName, string password, string role)
     {
+        var nameParts = fullName.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+        var firstName = nameParts.Length > 0 ? nameParts[0] : fullName;
+        var lastName = nameParts.Length > 1 ? nameParts[1] : "";
+
         var user = await userManager.FindByEmailAsync(email);
         if (user == null)
         {
@@ -367,17 +371,41 @@ public static class DataSeeder
                 UserName = email,
                 Email = email,
                 FullName = fullName,
+                FirstName = firstName,
+                LastName = lastName,
                 EmailConfirmed = true,
+                Status = "ACTIVE",
+                IsActive = true,
+                IsDeleted = false,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
             await userManager.CreateAsync(user, password);
             await userManager.AddToRoleAsync(user, role);
         }
-        else if (!user.EmailConfirmed)
+        else
         {
-            user.EmailConfirmed = true;
-            await userManager.UpdateAsync(user);
+            var needsUpdate = false;
+            if (!user.EmailConfirmed)
+            {
+                user.EmailConfirmed = true;
+                needsUpdate = true;
+            }
+            if (string.IsNullOrEmpty(user.FirstName))
+            {
+                user.FirstName = firstName;
+                user.LastName = lastName;
+                needsUpdate = true;
+            }
+            if (string.IsNullOrEmpty(user.Status))
+            {
+                user.Status = "ACTIVE";
+                needsUpdate = true;
+            }
+            if (needsUpdate)
+            {
+                await userManager.UpdateAsync(user);
+            }
         }
         return user;
     }

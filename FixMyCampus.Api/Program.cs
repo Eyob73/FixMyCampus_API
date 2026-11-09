@@ -121,6 +121,7 @@ builder.Services.AddScoped<IDuplicateDetectionService, DuplicateDetectionService
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ITicketService, TicketService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<IReporterService, ReporterService>();
 builder.Services.AddScoped<ITechnicianService, TechnicianService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 

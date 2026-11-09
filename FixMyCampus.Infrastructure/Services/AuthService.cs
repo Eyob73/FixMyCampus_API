@@ -32,12 +32,17 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponseDto> RegisterAsync(RegisterRequest request, string? ipAddress = null)
     {
+        var nameParts = (request.FullName ?? "").Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
         var user = new ApplicationUser
         {
             UserName = request.Email,
             Email = request.Email,
             FullName = request.FullName,
-            IsActive = true
+            FirstName = nameParts.Length > 0 ? nameParts[0] : request.FullName,
+            LastName = nameParts.Length > 1 ? nameParts[1] : "",
+            Status = "ACTIVE",
+            IsActive = true,
+            IsDeleted = false
         };
 
         var result = await _userManager.CreateAsync(user, request.Password);
@@ -64,7 +69,12 @@ public class AuthService : IAuthService
             throw new UnauthorizedAccessException("Invalid credentials.");
         }
 
-        if (!user.IsActive)
+        if (user.IsDeleted)
+        {
+            throw new UnauthorizedAccessException("This account has been deleted.");
+        }
+
+        if (!user.IsActive || string.Equals(user.Status, "SUSPENDED", StringComparison.OrdinalIgnoreCase) || string.Equals(user.Status, "DEACTIVATED", StringComparison.OrdinalIgnoreCase))
         {
             throw new UnauthorizedAccessException("This account has been deactivated or disabled.");
         }
@@ -147,7 +157,7 @@ public class AuthService : IAuthService
                         throw new UnauthorizedAccessException("Account locked due to multiple failed login attempts.");
                     }
 
-                    if (!graceUser.IsActive)
+                    if (graceUser.IsDeleted || !graceUser.IsActive || string.Equals(graceUser.Status, "SUSPENDED", StringComparison.OrdinalIgnoreCase) || string.Equals(graceUser.Status, "DEACTIVATED", StringComparison.OrdinalIgnoreCase))
                     {
                         throw new UnauthorizedAccessException("This account has been deactivated or disabled.");
                     }
@@ -191,12 +201,12 @@ public class AuthService : IAuthService
 
             // Validate user status
             var user = token.User;
-            if (user == null || !user.IsActive)
+            if (user == null || user.IsDeleted || !user.IsActive || string.Equals(user.Status, "SUSPENDED", StringComparison.OrdinalIgnoreCase) || string.Equals(user.Status, "DEACTIVATED", StringComparison.OrdinalIgnoreCase))
             {
                 token.IsRevoked = true;
                 token.RevokedAt = DateTime.UtcNow;
                 token.RevokedByIp = ipAddress;
-                token.ReasonRevoked = "Account is inactive or disabled";
+                token.ReasonRevoked = "Account is inactive, suspended, or deleted";
                 await _dbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
                 committed = true;
@@ -332,7 +342,12 @@ public class AuthService : IAuthService
             {
                 Id = user.Id,
                 Email = user.Email!,
-                FullName = user.FullName
+                FullName = user.FullName,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                Phone = user.PhoneNumber,
+                Status = user.Status,
+                IsActive = user.IsActive
             },
             Roles = roles
         };

@@ -5,6 +5,8 @@ namespace FixMyCampus.Domain.Entities;
 public class ApplicationUser : IdentityUser<Guid>
 {
     public string FullName { get; set; } = string.Empty;
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
@@ -24,6 +26,11 @@ public class ApplicationUser : IdentityUser<Guid>
     public string? TechnicianStatus { get; set; }
 
     public bool IsActive { get; set; } = true;
+    public string Status { get; set; } = "ACTIVE";
+
+    // Soft delete fields
+    public bool IsDeleted { get; set; } = false;
+    public DateTime? DeletedAt { get; set; }
 
     public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
     public ICollection<TicketImage> UploadedImages { get; set; } = new List<TicketImage>();

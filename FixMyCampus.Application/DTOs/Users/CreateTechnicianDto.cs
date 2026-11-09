@@ -26,4 +26,7 @@ public class CreateTechnicianDto
 
     [Required]
     public string Status { get; set; } = "AVAILABLE";
+
+    [StringLength(100, MinimumLength = 6, ErrorMessage = "Password must be at least 6 characters")]
+    public string? Password { get; set; }
 }

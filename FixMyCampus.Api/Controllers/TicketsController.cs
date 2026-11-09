@@ -88,15 +88,21 @@ public class TicketsController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetTickets([FromQuery] TicketFilterRequest filter)
     {
+        if (User.IsInRole("Reporter") && !User.IsInRole("Admin") && !User.IsInRole("Technician"))
+        {
+            var myTickets = await _ticketService.GetMyTicketsAsync(CurrentUserId, filter);
+            return Ok(myTickets);
+        }
+
         var tickets = await _ticketService.GetTicketsAsync(filter);
         return Ok(tickets);
     }
 
     [HttpGet("my")]
     [Authorize(Roles = "Reporter")]
-    public async Task<IActionResult> GetMyTickets()
+    public async Task<IActionResult> GetMyTickets([FromQuery] TicketFilterRequest? filter)
     {
-        var tickets = await _ticketService.GetMyTicketsAsync(CurrentUserId);
+        var tickets = await _ticketService.GetMyTicketsAsync(CurrentUserId, filter);
         return Ok(tickets);
     }
 

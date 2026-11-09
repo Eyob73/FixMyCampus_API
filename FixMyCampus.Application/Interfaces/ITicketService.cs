@@ -6,7 +6,7 @@ public interface ITicketService
 {
     Task<TicketDto> CreateTicketAsync(Guid reporterId, CreateTicketRequest request, IEnumerable<Microsoft.AspNetCore.Http.IFormFile>? files = null);
     Task<IReadOnlyList<TicketDto>> GetTicketsAsync(TicketFilterRequest? filter);
-    Task<IReadOnlyList<TicketDto>> GetMyTicketsAsync(Guid reporterId);
+    Task<IReadOnlyList<TicketDto>> GetMyTicketsAsync(Guid reporterId, TicketFilterRequest? filter = null);
     Task<TicketDetailsDto> GetTicketByIdAsync(Guid ticketId, Guid currentUserId, bool isAdmin);
     Task<IReadOnlyList<TicketHistoryDto>> GetTicketHistoryAsync(Guid ticketId, Guid currentUserId, bool isAdmin);
     Task<TicketDetailsDto> AddInternalNoteAsync(Guid ticketId, Guid currentUserId, bool isAdmin, AddNoteRequest request);

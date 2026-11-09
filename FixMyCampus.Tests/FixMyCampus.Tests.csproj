@@ -19,6 +19,7 @@
     <ProjectReference Include="..\FixMyCampus.Domain\FixMyCampus.Domain.csproj" />
     <ProjectReference Include="..\FixMyCampus.Application\FixMyCampus.Application.csproj" />
     <ProjectReference Include="..\FixMyCampus.Infrastructure\FixMyCampus.Infrastructure.csproj" />
+    <ProjectReference Include="..\FixMyCampus.Api\FixMyCampus.Api.csproj" />
   </ItemGroup>
 
   <ItemGroup>

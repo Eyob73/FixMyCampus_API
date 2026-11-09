@@ -222,6 +222,7 @@ public class TicketService : ITicketService
             .Include(t => t.Images)
             .Include(t => t.Assignments)
                 .ThenInclude(a => a.Technician)
+            .Where(t => !t.IsDeleted)
             .AsNoTracking()
             .AsQueryable();
 
@@ -231,21 +232,32 @@ public class TicketService : ITicketService
             if (!string.IsNullOrEmpty(filter.Category)) query = query.Where(t => t.Category.Contains(filter.Category));
             if (!string.IsNullOrEmpty(filter.Building)) query = query.Where(t => t.Building.Contains(filter.Building));
             if (!string.IsNullOrEmpty(filter.Floor)) query = query.Where(t => t.Floor != null && t.Floor.Contains(filter.Floor));
+            if (filter.Priority.HasValue) query = query.Where(t => t.Priority == filter.Priority.Value);
         }
 
         var tickets = await query.OrderByDescending(t => t.CreatedAt).ToListAsync();
         return tickets.Select(MapToDtoSync).ToList();
     }
 
-    public async Task<IReadOnlyList<TicketDto>> GetMyTicketsAsync(Guid reporterId)
+    public async Task<IReadOnlyList<TicketDto>> GetMyTicketsAsync(Guid reporterId, TicketFilterRequest? filter = null)
     {
         var query = _context.Tickets
             .Include(t => t.Reporter)
             .Include(t => t.Images)
             .Include(t => t.Assignments)
                 .ThenInclude(a => a.Technician)
-            .Where(t => t.ReporterId == reporterId)
-            .AsNoTracking();
+            .Where(t => t.ReporterId == reporterId && !t.IsDeleted)
+            .AsNoTracking()
+            .AsQueryable();
+
+        if (filter != null)
+        {
+            if (filter.Status.HasValue) query = query.Where(t => t.Status == filter.Status.Value);
+            if (!string.IsNullOrEmpty(filter.Category)) query = query.Where(t => t.Category.Contains(filter.Category));
+            if (!string.IsNullOrEmpty(filter.Building)) query = query.Where(t => t.Building.Contains(filter.Building));
+            if (!string.IsNullOrEmpty(filter.Floor)) query = query.Where(t => t.Floor != null && t.Floor.Contains(filter.Floor));
+            if (filter.Priority.HasValue) query = query.Where(t => t.Priority == filter.Priority.Value);
+        }
 
         var tickets = await query.OrderByDescending(t => t.CreatedAt).ToListAsync();
         return tickets.Select(MapToDtoSync).ToList();
@@ -469,7 +481,7 @@ public class TicketService : ITicketService
     public async Task<FixMyCampus.Application.DTOs.Dashboard.ReporterDashboardDto> GetReporterDashboardAsync(Guid reporterId)
     {
         var tickets = await _context.Tickets
-            .Where(t => t.ReporterId == reporterId)
+            .Where(t => t.ReporterId == reporterId && !t.IsDeleted)
             .AsNoTracking()
             .ToListAsync();
 
@@ -479,7 +491,8 @@ public class TicketService : ITicketService
             NewTickets = tickets.Count(t => t.Status == TicketStatus.New),
             AssignedTickets = tickets.Count(t => t.Status == TicketStatus.Assigned),
             InProgressTickets = tickets.Count(t => t.Status == TicketStatus.InProgress),
-            ResolvedTickets = tickets.Count(t => t.Status == TicketStatus.Resolved)
+            ResolvedTickets = tickets.Count(t => t.Status == TicketStatus.Resolved),
+            ClosedTickets = tickets.Count(t => t.Status == TicketStatus.Closed)
         };
     }
 
