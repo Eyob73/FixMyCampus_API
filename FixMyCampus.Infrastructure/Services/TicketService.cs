@@ -9,6 +9,7 @@ using FixMyCampus.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -278,10 +279,10 @@ public class TicketService : ITicketService
 
         if (ticket == null) throw new KeyNotFoundException("Ticket not found");
 
-        if (!isAdmin && ticket.ReporterId != currentUserId)
+        var isAssignedTechnician = ticket.Assignments.Any(a => a.TechnicianId == currentUserId && a.UnassignedAt == null);
+        if (!isAdmin && ticket.ReporterId != currentUserId && !isAssignedTechnician)
         {
-            var isTechnician = ticket.Assignments.Any(a => a.TechnicianId == currentUserId && a.UnassignedAt == null);
-            if (!isTechnician) throw new UnauthorizedAccessException("Not authorized to view this ticket");
+            throw new UnauthorizedAccessException("Not authorized to view this ticket");
         }
 
         var dto = MapToDtoSync(ticket);
@@ -300,7 +301,9 @@ public class TicketService : ITicketService
             AssignedTechnician = dto.AssignedTechnician,
             CreatedAt = dto.CreatedAt,
             UpdatedAt = ticket.UpdatedAt,
-            InternalNotes = ticket.InternalNotes ?? new List<string>(),
+            InternalNotes = (isAdmin || isAssignedTechnician) && ticket.InternalNotes != null
+                ? new List<string>(ticket.InternalNotes)
+                : new List<string>(),
             Comments = ticket.Comments?.Select(c => new TicketCommentDto
             {
                 Id = c.Id,
@@ -369,12 +372,32 @@ public class TicketService : ITicketService
     public async Task<TicketDetailsDto> AddInternalNoteAsync(Guid ticketId, Guid currentUserId, bool isAdmin, AddNoteRequest request)
     {
         if (!isAdmin) throw new UnauthorizedAccessException("Only admins can add internal notes.");
+        if (request == null || string.IsNullOrWhiteSpace(request.Note))
+        {
+            throw new ArgumentException("Internal note content cannot be empty.", nameof(request));
+        }
 
-        var ticket = await _context.Tickets.FindAsync(ticketId);
+        var ticket = await _context.Tickets
+            .FirstOrDefaultAsync(t => t.Id == ticketId);
         if (ticket == null) throw new KeyNotFoundException("Ticket not found");
 
-        if (ticket.InternalNotes == null) ticket.InternalNotes = new List<string>();
-        ticket.InternalNotes.Add($"{DateTime.UtcNow:g}: {request.Note}");
+        var author = await _context.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == currentUserId);
+
+        var trimmedNote = request.Note.Trim();
+        var timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+        var formattedNote = author != null && !string.IsNullOrWhiteSpace(author.FullName)
+            ? $"{timestamp} UTC ({author.FullName}): {trimmedNote}"
+            : $"{timestamp} UTC: {trimmedNote}";
+
+        var updatedNotes = ticket.InternalNotes != null
+            ? new List<string>(ticket.InternalNotes)
+            : new List<string>();
+        updatedNotes.Add(formattedNote);
+
+        ticket.InternalNotes = updatedNotes;
+        _context.Entry(ticket).Property(t => t.InternalNotes).IsModified = true;
         ticket.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();

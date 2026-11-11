@@ -122,6 +122,10 @@ public class TicketsController : ControllerBase
         {
             return StatusCode(403, new { Message = ex.Message });
         }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
         catch (Exception ex)
         {
             return BadRequest(new { Message = ex.Message });
@@ -144,6 +148,10 @@ public class TicketsController : ControllerBase
         {
             return StatusCode(403, new { Message = ex.Message });
         }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
         catch (Exception ex)
         {
             return BadRequest(new { Message = ex.Message });
@@ -165,6 +173,10 @@ public class TicketsController : ControllerBase
         catch (UnauthorizedAccessException ex)
         {
             return StatusCode(403, new { Message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { Message = ex.Message });
         }
         catch (Exception ex)
         {
@@ -189,6 +201,10 @@ public class TicketsController : ControllerBase
         {
             return StatusCode(403, new { Message = ex.Message });
         }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
         catch (Exception ex)
         {
             return BadRequest(new { Message = ex.Message });
@@ -210,6 +226,10 @@ public class TicketsController : ControllerBase
         catch (UnauthorizedAccessException ex)
         {
             return StatusCode(403, new { Message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { Message = ex.Message });
         }
         catch (Exception ex)
         {
@@ -234,6 +254,10 @@ public class TicketsController : ControllerBase
         catch (UnauthorizedAccessException ex)
         {
             return StatusCode(403, new { Message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { Message = ex.Message });
         }
         catch (Exception ex)
         {
